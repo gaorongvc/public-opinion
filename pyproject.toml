@@ -9,6 +9,7 @@ dependencies = [
     "grlibs @ git+ssh://git@github.com/gaorongvc/grlibs.git",
     "jinja2",
     "pymongo",
+    "python-dotenv",
     "python-multipart",
     "requests",
     "uvicorn",

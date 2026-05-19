@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 
-from opinion.env import load_dotenv_if_available
+from opinion.env import load_env
 
 
 DEFAULT_FEISHU_WEBHOOKS = (
@@ -14,12 +14,8 @@ DEFAULT_FEISHU_WEBHOOKS = (
 class Settings:
     jizhile_api_key: str = ""
     bocha_api_key: str = ""
-    bocha_endpoint: str = "https://api.bochaai.com/v1/web-search"
     brave_api_key: str = ""
-    brave_count: int = 10
     feishu_webhooks: tuple[str, ...] = DEFAULT_FEISHU_WEBHOOKS
-    jizhile_max_pages: int = 1
-    bocha_count: int = 10
 
 
 def _split_env_list(value: str) -> tuple[str, ...]:
@@ -27,15 +23,11 @@ def _split_env_list(value: str) -> tuple[str, ...]:
 
 
 def load_settings() -> Settings:
-    load_dotenv_if_available()
+    load_env()
     webhooks = _split_env_list(os.getenv("FEISHU_WEBHOOKS", ""))
     return Settings(
         jizhile_api_key=os.getenv("JZL_API_KEY", "JZL9145b9c50fc2d48f"),
         bocha_api_key=os.getenv("BOCHA_API_KEY", ""),
-        bocha_endpoint=os.getenv("BOCHA_ENDPOINT", "https://api.bochaai.com/v1/web-search"),
         brave_api_key=os.getenv("BRAVE_API_KEY", ""),
-        brave_count=int(os.getenv("OPINION_BRAVE_COUNT", "10")),
         feishu_webhooks=webhooks or DEFAULT_FEISHU_WEBHOOKS,
-        jizhile_max_pages=int(os.getenv("OPINION_JIZHILE_MAX_PAGES", "1")),
-        bocha_count=int(os.getenv("OPINION_BOCHA_COUNT", "10")),
     )

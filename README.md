@@ -10,15 +10,14 @@ uv sync
 
 Environment variables:
 
+Create a `.env` file before running jobs, source smoke tests, or the admin UI.
+
 - `JZL_API_KEY`: 极致了 API key. Defaults to the existing project key.
 - `BOCHA_API_KEY`: 博查 Web Search API key.
 - `BRAVE_API_KEY`: Brave Search API key.
 - `FEISHU_WEBHOOKS`: comma-separated Feishu bot webhook URLs. Defaults to the existing global hooks.
 - `MONGO_URI`: optional MongoDB URI fallback when `grlibs.mdb` is unavailable.
 - `MONGO_DB`: MongoDB database name for `MONGO_URI`, default `opinion`.
-- `OPINION_JIZHILE_MAX_PAGES`: pages fetched per WeChat plan, default `1`.
-- `OPINION_BOCHA_COUNT`: web results fetched per plan, default `10`.
-- `OPINION_BRAVE_COUNT`: Brave web results fetched per plan, default `10`.
 
 MongoDB collections:
 

@@ -64,15 +64,15 @@ def map_article(record):
 if __name__ == "__main__":
     import os
 
-    from opinion.env import load_dotenv_if_available
+    from opinion.env import load_env
 
-    load_dotenv_if_available()
+    load_env()
     client = JizhileClient(os.getenv("JZL_API_KEY", ""))
     plan = {
         "kw": os.getenv("OPINION_TEST_KW", "高榕"),
         "any_kw": os.getenv("OPINION_TEST_ANY_KW", "融资"),
         "ex_kw": os.getenv("OPINION_TEST_EX_KW", ""),
     }
-    items = client.search(plan, period_days=int(os.getenv("OPINION_TEST_PERIOD_DAYS", "1")), max_pages=int(os.getenv("OPINION_JIZHILE_MAX_PAGES", "1")))
+    items = client.search(plan, period_days=1, max_pages=1)
     for item in items:
         print(item["source_name"], item["title"], item["url"])

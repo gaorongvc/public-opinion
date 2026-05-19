@@ -10,8 +10,13 @@ from opinion.sources.jizhile import JizhileClient
 from opinion.timeutils import utcnow
 
 
+JIZHILE_MAX_PAGES = 1
+BOCHA_COUNT = 10
+BRAVE_COUNT = 10
+
+
 def run(db=None, source_clients=None, classify=None, send_message=None, settings=None):
-    settings = settings or load_settings()
+    settings = settings or (load_settings() if source_clients is None else None)
     db = db or get_db()
     ensure_indexes(db)
     source_clients = source_clients or _default_source_clients(settings)
@@ -42,7 +47,7 @@ def run(db=None, source_clients=None, classify=None, send_message=None, settings
                 errors.append(f"{plan.get('name')}: unknown source {source}")
                 continue
             try:
-                raw_items = _search_source(client, source, plan, settings)
+                raw_items = _search_source(client, source, plan)
             except Exception as exc:
                 errors.append(f"{plan.get('name')}:{source}: {exc}")
                 continue
@@ -82,18 +87,18 @@ def run(db=None, source_clients=None, classify=None, send_message=None, settings
 def _default_source_clients(settings):
     return {
         "wechat": JizhileClient(settings.jizhile_api_key),
-        "web": BochaClient(settings.bocha_api_key, endpoint=settings.bocha_endpoint),
+        "web": BochaClient(settings.bocha_api_key),
         "brave": BraveSearchClient(settings.brave_api_key),
     }
 
 
-def _search_source(client, source, plan, settings):
+def _search_source(client, source, plan):
     if source == "wechat":
-        return client.search(plan, period_days=1, max_pages=settings.jizhile_max_pages)
+        return client.search(plan, period_days=1, max_pages=JIZHILE_MAX_PAGES)
     if source == "web":
-        return client.search(plan, freshness="oneDay", count=settings.bocha_count)
+        return client.search(plan, freshness="oneDay", count=BOCHA_COUNT)
     if source == "brave":
-        return client.search(plan, freshness="pd", count=settings.brave_count)
+        return client.search(plan, freshness="pd", count=BRAVE_COUNT)
     return client.search(plan)
 
 

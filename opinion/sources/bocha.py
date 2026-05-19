@@ -55,15 +55,15 @@ def map_web_page(record):
 if __name__ == "__main__":
     import os
 
-    from opinion.env import load_dotenv_if_available
+    from opinion.env import load_env
 
-    load_dotenv_if_available()
+    load_env()
     client = BochaClient(os.getenv("BOCHA_API_KEY", ""))
     plan = {
         "kw": os.getenv("OPINION_TEST_KW", "高榕"),
         "any_kw": os.getenv("OPINION_TEST_ANY_KW", "融资"),
         "ex_kw": os.getenv("OPINION_TEST_EX_KW", ""),
     }
-    items = client.search(plan, freshness=os.getenv("OPINION_TEST_FRESHNESS", "oneDay"), count=int(os.getenv("OPINION_BOCHA_COUNT", "10")))
+    items = client.search(plan, freshness=os.getenv("OPINION_TEST_FRESHNESS", "oneDay"), count=10)
     for item in items:
         print(item["source_name"], item["title"], item["url"])

@@ -7,6 +7,7 @@ from opinion.formatters import format_daily_summary, format_item_message
 from opinion.jobs.collect_and_notify_once import run as collect_and_notify_once
 from opinion.jobs.daily_summary import run as daily_summary
 from opinion.keywords import build_search_query, keyword_tokens, matches_plan
+from opinion.notifier import FeishuNotifyError, ensure_feishu_success
 from opinion.sources.bocha import BochaClient
 from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
@@ -226,6 +227,11 @@ def test_format_daily_summary_handles_zero_items():
     assert "正面0条，占比0%" in content
 
 
+def test_ensure_feishu_success_raises_for_non_zero_business_code():
+    with pytest.raises(FeishuNotifyError, match="frequency limited"):
+        ensure_feishu_success({"code": 11232, "msg": "frequency limited"}, webhook="https://example.com/hook")
+
+
 def test_collect_and_notify_once_writes_items_runs_and_sends_related_item():
     db = FakeDb()
     db.plans.insert_one(
@@ -334,6 +340,51 @@ def test_collect_and_notify_once_does_not_send_existing_related_item():
     assert result["pushed_count"] == 0
     assert sent == []
     assert db.items.find_one({"unique_key": "brave:https://example.com/a"})["matched_plan_ids"] == ["plan-1"]
+
+
+def test_collect_and_notify_once_records_notify_error_without_marking_notified():
+    db = FakeDb()
+    db.plans.insert_one(
+        {
+            "_id": "plan-1",
+            "name": "高榕品牌关键词",
+            "kw": "高榕",
+            "any_kw": "融资",
+            "ex_kw": "",
+            "sources": ["wechat"],
+            "enabled": True,
+        }
+    )
+
+    class FakeWechat:
+        def search(self, plan, period_days=1, max_pages=1):
+            return [
+                {
+                    "unique_key": "wechat:https://mp.weixin.qq.com/s/fail",
+                    "source_type": "wechat",
+                    "source_name": "投资号",
+                    "title": "高榕资本消息",
+                    "url": "https://mp.weixin.qq.com/s/fail",
+                    "content": "高榕资本参与融资",
+                    "summary": "高榕资本参与融资",
+                    "published_at": None,
+                    "metrics": {},
+                    "raw": {},
+                }
+            ]
+
+    result = collect_and_notify_once(
+        db=db,
+        source_clients={"wechat": FakeWechat()},
+        classify=lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
+        send_message=lambda message: (_ for _ in ()).throw(FeishuNotifyError("frequency limited")),
+    )
+
+    stored = db.items.find_one({"unique_key": "wechat:https://mp.weixin.qq.com/s/fail"})
+    assert result["status"] == "failed"
+    assert result["pushed_count"] == 0
+    assert "notify failed: frequency limited" in result["errors"][0]
+    assert "notified_at" not in stored
 
 
 def test_daily_summary_reads_last_24_hours_and_sends_report():

@@ -1,6 +1,10 @@
-def load_dotenv_if_available():
-    try:
-        from dotenv import load_dotenv
-    except Exception:
-        return False
-    return bool(load_dotenv())
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+def load_env():
+    dotenv_path = Path(".env")
+    if not dotenv_path.exists():
+        raise FileNotFoundError(".env is required")
+    load_dotenv(dotenv_path)
