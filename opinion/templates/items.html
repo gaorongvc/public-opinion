@@ -15,15 +15,27 @@
   <tbody>
     {% for item in items %}
     <tr>
-      <td class="muted">{{ item.created_at }}</td>
-      <td>{{ item.sentiment }}</td>
+      <td class="muted">{{ item.published_at|format_datetime }}</td>
+      <td><span class="sentiment {{ item.sentiment }}">{{ item.sentiment|sentiment_text }}</span></td>
       <td>{{ item.source_name }}</td>
       <td><a href="{{ item.url }}">{{ item.title }}</a></td>
       <td>{{ item.reason }}</td>
-      <td>{{ item.notified_at or "" }}</td>
+      <td>{{ item.notified_at|format_datetime }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+<div class="pagination">
+  {% if has_prev %}
+  <a class="button secondary" href="{{ prev_url }}">上一页</a>
+  {% else %}
+  <span class="button disabled">上一页</span>
+  {% endif %}
+  <span class="muted">第 {{ page }} 页，每页 20 条</span>
+  {% if has_next %}
+  <a class="button secondary" href="{{ next_url }}">下一页</a>
+  {% else %}
+  <span class="button disabled">下一页</span>
+  {% endif %}
+</div>
 {% endblock %}
-

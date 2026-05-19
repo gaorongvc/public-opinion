@@ -7,6 +7,26 @@ from opinion.db import get_db, object_id
 
 app = FastAPI(title="Opinion Monitor")
 templates = Jinja2Templates(directory="opinion/templates")
+PAGE_SIZE = 20
+SENTIMENT_TEXT = {
+    "positive": "正向",
+    "negative": "负面",
+    "neutral": "中性",
+}
+
+
+def format_datetime(value):
+    if not value:
+        return ""
+    return value.strftime("%Y-%m-%d %H:%M:%S") if hasattr(value, "strftime") else str(value)
+
+
+def sentiment_text(value):
+    return SENTIMENT_TEXT.get(value, value or "")
+
+
+templates.env.filters["format_datetime"] = format_datetime
+templates.env.filters["sentiment_text"] = sentiment_text
 
 
 @app.get("/")
@@ -75,17 +95,49 @@ def toggle_plan(plan_id: str):
 
 
 @app.get("/items")
-def items(request: Request):
+def items(request: Request, page: int = 1):
     db = get_db()
-    records = list(db.items.find({}).sort("created_at", -1).limit(200))
-    return templates.TemplateResponse("items.html", {"request": request, "items": records})
+    pagination = _pagination(page)
+    records = list(db.items.find({}).sort("published_at", -1).skip(pagination["skip"]).limit(PAGE_SIZE + 1))
+    return templates.TemplateResponse(
+        "items.html",
+        {
+            "request": request,
+            "items": records[:PAGE_SIZE],
+            "page": pagination["page"],
+            "has_prev": pagination["page"] > 1,
+            "has_next": len(records) > PAGE_SIZE,
+            "prev_url": f"/items?page={pagination['page'] - 1}",
+            "next_url": f"/items?page={pagination['page'] + 1}",
+        },
+    )
 
 
 @app.get("/runs")
-def runs(request: Request):
+def runs(request: Request, page: int = 1):
     db = get_db()
-    records = list(db.runs.find({}).sort("started_at", -1).limit(100))
-    return templates.TemplateResponse("runs.html", {"request": request, "runs": records})
+    pagination = _pagination(page)
+    records = list(db.runs.find({}).sort("started_at", -1).skip(pagination["skip"]).limit(PAGE_SIZE + 1))
+    return templates.TemplateResponse(
+        "runs.html",
+        {
+            "request": request,
+            "runs": records[:PAGE_SIZE],
+            "page": pagination["page"],
+            "has_prev": pagination["page"] > 1,
+            "has_next": len(records) > PAGE_SIZE,
+            "prev_url": f"/runs?page={pagination['page'] - 1}",
+            "next_url": f"/runs?page={pagination['page'] + 1}",
+        },
+    )
+
+
+def _pagination(page):
+    normalized_page = max(page, 1)
+    return {
+        "page": normalized_page,
+        "skip": (normalized_page - 1) * PAGE_SIZE,
+    }
 
 
 def _plan_doc(name, kw, any_kw, ex_kw, sources, enabled, update=False):

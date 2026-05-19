@@ -15,7 +15,14 @@
     th { color: #667085; font-weight: 600; background: #fbfcfd; }
     .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .button { border: 1px solid #2563eb; color: #fff; background: #2563eb; padding: 8px 12px; border-radius: 6px; text-decoration: none; cursor: pointer; }
+    .button.secondary { color: #2563eb; background: #fff; }
+    .button.disabled { border-color: #d0d5dd; color: #98a2b3; background: #fff; pointer-events: none; }
     .muted { color: #667085; }
+    .sentiment { font-weight: 600; }
+    .sentiment.positive { color: #16a34a; }
+    .sentiment.negative { color: #dc2626; }
+    .sentiment.neutral { color: #667085; }
+    .pagination { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 14px; }
     form.panel { background: #fff; border: 1px solid #e5e7eb; padding: 20px; }
     label { display: block; margin: 14px 0 6px; color: #344054; }
     input[type=text], textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #d0d5dd; border-radius: 6px; font: inherit; }
@@ -36,4 +43,3 @@
   <main>{% block content %}{% endblock %}</main>
 </body>
 </html>
-

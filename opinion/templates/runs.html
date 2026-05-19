@@ -19,8 +19,8 @@
     <tr>
       <td>{{ run.job }}</td>
       <td>{{ run.status }}</td>
-      <td>{{ run.started_at }}</td>
-      <td>{{ run.ended_at }}</td>
+      <td>{{ run.started_at|format_datetime }}</td>
+      <td>{{ run.ended_at|format_datetime }}</td>
       <td>{{ run.plan_count or "" }}</td>
       <td>{{ run.collected_count or run.item_count or 0 }}</td>
       <td>{{ run.pushed_count or 0 }}</td>
@@ -29,5 +29,17 @@
     {% endfor %}
   </tbody>
 </table>
+<div class="pagination">
+  {% if has_prev %}
+  <a class="button secondary" href="{{ prev_url }}">上一页</a>
+  {% else %}
+  <span class="button disabled">上一页</span>
+  {% endif %}
+  <span class="muted">第 {{ page }} 页，每页 20 条</span>
+  {% if has_next %}
+  <a class="button secondary" href="{{ next_url }}">下一页</a>
+  {% else %}
+  <span class="button disabled">下一页</span>
+  {% endif %}
+</div>
 {% endblock %}
-
