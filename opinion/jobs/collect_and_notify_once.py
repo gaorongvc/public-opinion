@@ -5,6 +5,7 @@ from opinion.keywords import matches_plan
 from opinion.notifier import send_to_feishu
 from opinion.settings import load_settings
 from opinion.sources.bocha import BochaClient
+from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
 from opinion.timeutils import utcnow
 
@@ -50,8 +51,8 @@ def run(db=None, source_clients=None, classify=None, send_message=None, settings
                 if not matches_plan(plan, match_text):
                     continue
                 collected_count += 1
-                stored = _store_item(db, item, plan_id, plan, classify)
-                if stored.get("related") and not stored.get("notified_at"):
+                stored, inserted = _store_item(db, item, plan_id, plan, classify)
+                if inserted and stored.get("related"):
                     try:
                         send_message(format_item_message(stored))
                     except Exception as exc:
@@ -82,6 +83,7 @@ def _default_source_clients(settings):
     return {
         "wechat": JizhileClient(settings.jizhile_api_key),
         "web": BochaClient(settings.bocha_api_key, endpoint=settings.bocha_endpoint),
+        "brave": BraveSearchClient(settings.brave_api_key),
     }
 
 
@@ -90,6 +92,8 @@ def _search_source(client, source, plan, settings):
         return client.search(plan, period_days=1, max_pages=settings.jizhile_max_pages)
     if source == "web":
         return client.search(plan, freshness="oneDay", count=settings.bocha_count)
+    if source == "brave":
+        return client.search(plan, freshness="pd", count=settings.brave_count)
     return client.search(plan)
 
 
@@ -101,7 +105,7 @@ def _store_item(db, item, plan_id, plan, classify):
             {"unique_key": item["unique_key"]},
             {"$addToSet": {"matched_plan_ids": plan_id}, "$set": {"updated_at": now}},
         )
-        return db.items.find_one({"unique_key": item["unique_key"]})
+        return db.items.find_one({"unique_key": item["unique_key"]}), False
 
     classification = classify(item, plan)
     doc = {
@@ -113,9 +117,8 @@ def _store_item(db, item, plan_id, plan, classify):
         "updated_at": now,
     }
     db.items.insert_one(doc)
-    return doc
+    return doc, True
 
 
 if __name__ == "__main__":
     print(run())
-

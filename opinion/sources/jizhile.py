@@ -18,8 +18,8 @@ class JizhileClient:
         for page in range(1, max_pages + 1):
             payload = {
                 "kw": plan.get("kw", ""),
-                "sort_type": 1,
-                "mode": 1,
+                "sort_type": 2,
+                "mode": 3,
                 "period": period_days,
                 "page": page,
                 "key": self.api_key,
@@ -60,3 +60,19 @@ def map_article(record):
         "raw": record,
     }
 
+
+if __name__ == "__main__":
+    import os
+
+    from opinion.env import load_dotenv_if_available
+
+    load_dotenv_if_available()
+    client = JizhileClient(os.getenv("JZL_API_KEY", ""))
+    plan = {
+        "kw": os.getenv("OPINION_TEST_KW", "高榕"),
+        "any_kw": os.getenv("OPINION_TEST_ANY_KW", "融资"),
+        "ex_kw": os.getenv("OPINION_TEST_EX_KW", ""),
+    }
+    items = client.search(plan, period_days=int(os.getenv("OPINION_TEST_PERIOD_DAYS", "1")), max_pages=int(os.getenv("OPINION_JIZHILE_MAX_PAGES", "1")))
+    for item in items:
+        print(item["source_name"], item["title"], item["url"])

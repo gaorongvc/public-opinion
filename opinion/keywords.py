@@ -23,6 +23,14 @@ def matches_plan(plan, text):
 
 
 def build_search_query(plan):
-    tokens = keyword_tokens(plan.get("kw", "")) + keyword_tokens(plan.get("any_kw", ""))
-    return " ".join(tokens)
+    parts = []
+    kw_tokens = keyword_tokens(plan.get("kw", ""))
+    any_tokens = keyword_tokens(plan.get("any_kw", ""))
+    ex_tokens = keyword_tokens(plan.get("ex_kw", ""))
 
+    parts.extend(kw_tokens)
+    if any_tokens:
+        parts.append(f"({' OR '.join(any_tokens)})")
+    parts.extend(f"-{token}" for token in ex_tokens)
+    print(" ".join(parts))
+    return " ".join(parts)

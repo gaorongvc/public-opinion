@@ -12,11 +12,13 @@ Environment variables:
 
 - `JZL_API_KEY`: 极致了 API key. Defaults to the existing project key.
 - `BOCHA_API_KEY`: 博查 Web Search API key.
+- `BRAVE_API_KEY`: Brave Search API key.
 - `FEISHU_WEBHOOKS`: comma-separated Feishu bot webhook URLs. Defaults to the existing global hooks.
 - `MONGO_URI`: optional MongoDB URI fallback when `grlibs.mdb` is unavailable.
 - `MONGO_DB`: MongoDB database name for `MONGO_URI`, default `opinion`.
 - `OPINION_JIZHILE_MAX_PAGES`: pages fetched per WeChat plan, default `1`.
 - `OPINION_BOCHA_COUNT`: web results fetched per plan, default `10`.
+- `OPINION_BRAVE_COUNT`: Brave web results fetched per plan, default `10`.
 
 MongoDB collections:
 
@@ -35,7 +37,7 @@ Core fields:
 - `kw`: required keywords. All tokens must be present.
 - `any_kw`: optional keywords. At least one token must be present when set.
 - `ex_kw`: exclusion keywords. Any hit filters the item out.
-- `sources`: enabled data sources, currently `wechat`, `web`, or both.
+- `sources`: enabled data sources, currently `wechat`, `web`, `brave`, or any combination.
 - `enabled`: whether the plan is active.
 - `created_at`: creation time.
 - `updated_at`: last edit time.
@@ -48,8 +50,8 @@ the same source results.
 
 Core fields:
 
-- `unique_key`: stable dedupe key, such as `wechat:<url>` or `web:<url>`.
-- `source_type`: `wechat` or `web`.
+- `unique_key`: stable dedupe key, such as `wechat:<url>`, `web:<url>`, or `brave:<url>`.
+- `source_type`: `wechat`, `web`, or `brave`.
 - `source_name`: WeChat account name, website name, or source display name.
 - `title`: article or page title.
 - `url`: original content URL.

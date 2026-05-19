@@ -18,10 +18,10 @@
   <div class="checks">
     <label><input type="checkbox" name="sources" value="wechat" {% if not plan or "wechat" in (plan.sources or []) %}checked{% endif %}> 微信公众号</label>
     <label><input type="checkbox" name="sources" value="web" {% if not plan or "web" in (plan.sources or []) %}checked{% endif %}> 网页搜索</label>
+    <label><input type="checkbox" name="sources" value="brave" {% if "brave" in (plan.sources or []) %}checked{% endif %}> Brave Search</label>
   </div>
 
   <label><input type="checkbox" name="enabled" value="1" {% if not plan or plan.enabled %}checked{% endif %}> 启用</label>
   <button class="button" type="submit">保存</button>
 </form>
 {% endblock %}
-

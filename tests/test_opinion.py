@@ -6,8 +6,9 @@ from opinion.classifier import parse_llm_json
 from opinion.formatters import format_daily_summary, format_item_message
 from opinion.jobs.collect_and_notify_once import run as collect_and_notify_once
 from opinion.jobs.daily_summary import run as daily_summary
-from opinion.keywords import keyword_tokens, matches_plan
+from opinion.keywords import build_search_query, keyword_tokens, matches_plan
 from opinion.sources.bocha import BochaClient
+from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
 
 
@@ -28,6 +29,10 @@ class FakeSession:
         self.calls = []
 
     def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return FakeResponse(self.payload)
+
+    def get(self, url, **kwargs):
         self.calls.append((url, kwargs))
         return FakeResponse(self.payload)
 
@@ -108,6 +113,11 @@ def test_matches_plan_requires_kw_any_and_exclusion():
     assert not matches_plan(plan, "高榕资本发布年度报告")
 
 
+def test_build_search_query_uses_google_compatible_boolean_logic():
+    plan = {"kw": "高榕 资本", "any_kw": "融资 投资", "ex_kw": "招聘 离职"}
+    assert build_search_query(plan) == '高榕 资本 (融资 OR 投资) -招聘 -离职'
+
+
 def test_jizhile_client_maps_wechat_articles_and_payload():
     session = FakeSession(
         {
@@ -161,6 +171,33 @@ def test_bocha_client_maps_web_pages():
     assert items[0]["source_type"] == "web"
     assert items[0]["source_name"] == "Example"
     assert items[0]["unique_key"] == "web:https://example.com/a"
+
+
+def test_brave_client_maps_web_results_and_uses_subscription_header():
+    session = FakeSession(
+        {
+            "web": {
+                "results": [
+                    {
+                        "title": "高榕资本新闻",
+                        "url": "https://example.com/brave",
+                        "description": "高榕资本参与融资",
+                        "page_age": "2026-05-18T10:00:00",
+                        "profile": {"name": "Example"},
+                    }
+                ]
+            }
+        }
+    )
+    client = BraveSearchClient(api_key="brave-key", session=session)
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, freshness="pd", count=10)
+
+    assert session.calls[0][1]["headers"]["X-Subscription-Token"] == "brave-key"
+    assert session.calls[0][1]["params"]["q"] == "高榕 (融资)"
+    assert session.calls[0][1]["params"]["result_filter"] == "web"
+    assert items[0]["source_type"] == "brave"
+    assert items[0]["source_name"] == "Example"
+    assert items[0]["unique_key"] == "brave:https://example.com/brave"
 
 
 def test_parse_llm_json_accepts_fenced_json():
@@ -235,6 +272,68 @@ def test_collect_and_notify_once_writes_items_runs_and_sends_related_item():
     assert db.items.find_one({"unique_key": "wechat:https://mp.weixin.qq.com/s/abc"})["related"] is True
     assert db.runs.docs[-1]["job"] == "collect_and_notify_once"
     assert "高榕参与融资" in sent[0]
+
+
+def test_collect_and_notify_once_does_not_send_existing_related_item():
+    db = FakeDb()
+    db.plans.insert_one(
+        {
+            "_id": "plan-1",
+            "name": "高榕品牌关键词",
+            "kw": "高榕",
+            "any_kw": "融资",
+            "ex_kw": "",
+            "sources": ["brave"],
+            "enabled": True,
+        }
+    )
+    db.items.insert_one(
+        {
+            "unique_key": "brave:https://example.com/a",
+            "source_type": "brave",
+            "source_name": "Example",
+            "title": "高榕资本消息",
+            "url": "https://example.com/a",
+            "content": "高榕资本参与融资",
+            "summary": "高榕资本参与融资",
+            "related": True,
+            "sentiment": "positive",
+            "reason": "高榕参与融资",
+            "matched_plan_ids": [],
+        }
+    )
+
+    class FakeBrave:
+        def search(self, plan, freshness="pd", count=10):
+            return [
+                {
+                    "unique_key": "brave:https://example.com/a",
+                    "source_type": "brave",
+                    "source_name": "Example",
+                    "title": "高榕资本消息",
+                    "url": "https://example.com/a",
+                    "content": "高榕资本参与融资",
+                    "summary": "高榕资本参与融资",
+                    "published_at": None,
+                    "metrics": {},
+                    "raw": {},
+                }
+            ]
+
+    sent = []
+
+    result = collect_and_notify_once(
+        db=db,
+        source_clients={"brave": FakeBrave()},
+        classify=lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
+        send_message=lambda message: sent.append(message),
+    )
+
+    assert result["status"] == "success"
+    assert result["collected_count"] == 1
+    assert result["pushed_count"] == 0
+    assert sent == []
+    assert db.items.find_one({"unique_key": "brave:https://example.com/a"})["matched_plan_ids"] == ["plan-1"]
 
 
 def test_daily_summary_reads_last_24_hours_and_sends_report():
