@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="toolbar">
+  <h2>监控方案</h2>
+  <a class="button" href="/plans/new">新增方案</a>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th>名称</th>
+      <th>必须包含</th>
+      <th>任一包含</th>
+      <th>排除词</th>
+      <th>来源</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for plan in plans %}
+    <tr>
+      <td>{{ plan.name }}</td>
+      <td>{{ plan.kw }}</td>
+      <td>{{ plan.any_kw }}</td>
+      <td>{{ plan.ex_kw }}</td>
+      <td>{{ ", ".join(plan.sources or []) }}</td>
+      <td>{{ "启用" if plan.enabled else "停用" }}</td>
+      <td>
+        <a href="/plans/{{ plan._id }}/edit">编辑</a>
+        <form class="inline" method="post" action="/plans/{{ plan._id }}/toggle">
+          <button type="submit">{{ "停用" if plan.enabled else "启用" }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+

@@ -1,0 +1,7 @@
+git+ssh://git@github.com/gaorongvc/grlibs.git
+fastapi
+jinja2
+uvicorn
+requests
+python-multipart
+pymongo

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ "编辑方案" if plan else "新增方案" }}</h2>
+<form class="panel" method="post" action="{{ action }}">
+  <label>方案名称</label>
+  <input type="text" name="name" value="{{ plan.name or '' }}" required>
+
+  <label>必须包含</label>
+  <textarea name="kw">{{ plan.kw or '' }}</textarea>
+
+  <label>任一包含</label>
+  <textarea name="any_kw">{{ plan.any_kw or '' }}</textarea>
+
+  <label>排除词</label>
+  <textarea name="ex_kw">{{ plan.ex_kw or '' }}</textarea>
+
+  <label>数据源</label>
+  <div class="checks">
+    <label><input type="checkbox" name="sources" value="wechat" {% if not plan or "wechat" in (plan.sources or []) %}checked{% endif %}> 微信公众号</label>
+    <label><input type="checkbox" name="sources" value="web" {% if not plan or "web" in (plan.sources or []) %}checked{% endif %}> 网页搜索</label>
+  </div>
+
+  <label><input type="checkbox" name="enabled" value="1" {% if not plan or plan.enabled %}checked{% endif %}> 启用</label>
+  <button class="button" type="submit">保存</button>
+</form>
+{% endblock %}
+

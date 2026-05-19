@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "舆情监控" }}</title>
+  <style>
+    body { margin: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f7f8fa; }
+    header { background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 14px 28px; display: flex; gap: 22px; align-items: center; }
+    header strong { font-size: 18px; }
+    nav a { color: #2563eb; margin-right: 14px; text-decoration: none; }
+    main { max-width: 1120px; margin: 24px auto; padding: 0 20px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #edf0f3; vertical-align: top; }
+    th { color: #667085; font-weight: 600; background: #fbfcfd; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .button { border: 1px solid #2563eb; color: #fff; background: #2563eb; padding: 8px 12px; border-radius: 6px; text-decoration: none; cursor: pointer; }
+    .muted { color: #667085; }
+    form.panel { background: #fff; border: 1px solid #e5e7eb; padding: 20px; }
+    label { display: block; margin: 14px 0 6px; color: #344054; }
+    input[type=text], textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #d0d5dd; border-radius: 6px; font: inherit; }
+    textarea { min-height: 92px; }
+    .checks label { display: inline-flex; gap: 6px; margin-right: 16px; }
+    .inline { display: inline; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>舆情监控</strong>
+    <nav>
+      <a href="/plans">方案</a>
+      <a href="/items">舆情</a>
+      <a href="/runs">任务</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
+

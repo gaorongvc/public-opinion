@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>舆情结果</h2>
+<table>
+  <thead>
+    <tr>
+      <th>时间</th>
+      <th>情感</th>
+      <th>来源</th>
+      <th>标题</th>
+      <th>原因</th>
+      <th>推送</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td class="muted">{{ item.created_at }}</td>
+      <td>{{ item.sentiment }}</td>
+      <td>{{ item.source_name }}</td>
+      <td><a href="{{ item.url }}">{{ item.title }}</a></td>
+      <td>{{ item.reason }}</td>
+      <td>{{ item.notified_at or "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
