@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "舆情监控" }}</title>
+  <style>
+    :root {
+      --ink: #201416;
+      --muted: #766467;
+      --line: #eadcdf;
+      --line-strong: #dec4ca;
+      --surface: #ffffff;
+      --panel: #ffffff;
+      --panel-soft: #fff4f5;
+      --accent: #e86f7f;
+      --accent-strong: #cf455a;
+      --accent-soft: #ffe1e5;
+      --accent-wash: #fff7f8;
+      --green: #17854c;
+      --red: #c53449;
+      --shadow: 0 12px 32px rgba(126, 54, 64, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--surface);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+      padding: 14px 28px;
+      display: flex;
+      gap: 28px;
+      align-items: center;
+    }
+    header strong { font-size: 18px; letter-spacing: 0; }
+    nav { display: flex; gap: 8px; align-items: center; }
+    nav a {
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 7px 12px;
+      text-decoration: none;
+    }
+    nav a:hover { color: var(--accent-strong); background: var(--accent-wash); border-color: var(--line); }
+    main { max-width: 1180px; margin: 28px auto; padding: 0 24px; }
+    [hidden] { display: none !important; }
+    h2 { margin: 0 0 16px; font-size: 24px; line-height: 1.2; letter-spacing: 0; }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    th, td { text-align: left; padding: 13px 14px; border-bottom: 1px solid #f1e5e8; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: var(--accent-wash); }
+    th { color: var(--muted); font-size: 13px; font-weight: 650; background: #fff3f5; }
+    .plans-table { table-layout: fixed; }
+    .plans-table .col-any { width: 49%; }
+    .plans-table .col-name { width: 12%; }
+    .plans-table .col-kw, .plans-table .col-ex { width: 11%; }
+    .plans-table .col-source { width: 8%; }
+    .plans-table .col-status { width: 6%; }
+    .plans-table .col-op { width: 14%; }
+    .plans-table td { word-break: break-word; }
+    .op-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      border: 1px solid var(--accent-strong);
+      color: #fff;
+      background: var(--accent-strong);
+      padding: 8px 13px;
+      border-radius: 999px;
+      font: inherit;
+      font-weight: 650;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(207, 69, 90, 0.16);
+    }
+    .button.secondary { color: var(--accent-strong); background: #fff; box-shadow: none; }
+    .button.disabled { border-color: var(--line-strong); color: #b49da3; background: #fff; pointer-events: none; box-shadow: none; }
+    .button.small { min-height: 24px; padding: 2px 7px; font-size: 12px; font-weight: 600; }
+    .muted { color: var(--muted); }
+    .locked-field { background: #fbf4f5; color: var(--muted); }
+    .disabled-source { color: #b49da3; }
+    a { color: var(--accent-strong); }
+    .sentiment { font-weight: 600; }
+    .sentiment.positive { color: var(--green); }
+    .sentiment.negative { color: var(--red); }
+    .sentiment.neutral { color: var(--muted); }
+    .pagination { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+    form.panel {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    label { display: block; margin: 14px 0 6px; color: var(--muted); font-weight: 650; }
+    input[type=text], textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+    }
+    input[type=text]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+    textarea { min-height: 92px; }
+    .checks label { display: inline-flex; gap: 6px; margin-right: 16px; }
+    .inline { display: inline; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>舆情监控</strong>
+    <nav>
+      <a href="/plans">方案</a>
+      <a href="/items">舆情</a>
+      <a href="/runs">任务</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <script>
+    (function () {
+      var kHits = [];
+      var kIsDown = false;
+      var lastRecordAt = 0;
+      function setClass(node, className, enabled) {
+        if (enabled) node.classList.add(className);
+        else node.classList.remove(className);
+      }
+      function isKEvent(event) {
+        var key = (event.key || "").toLowerCase();
+        var code = event.code || "";
+        var data = (event.data || "").toLowerCase();
+        return key === "k" || code === "KeyK" || event.keyCode === 75 || event.which === 75 || data === "k";
+      }
+      function setUnlocked(unlocked) {
+        setClass(document.documentElement, "ops-unlocked", unlocked);
+        try { window.sessionStorage.setItem("op_unlocked", unlocked ? "1" : "0"); } catch (error) {}
+        var opNodes = document.querySelectorAll("[data-op-only]");
+        for (var i = 0; i < opNodes.length; i += 1) {
+          opNodes[i].hidden = !unlocked;
+        }
+        var enableNodes = document.querySelectorAll("[data-unlock-enable]");
+        for (var j = 0; j < enableNodes.length; j += 1) {
+          var node = enableNodes[j];
+          if (node.hasAttribute("data-always-disabled")) continue;
+          node.disabled = !unlocked;
+          setClass(node, "locked-field", !unlocked);
+        }
+        var readonlyNodes = document.querySelectorAll("[data-unlock-readonly]");
+        for (var k = 0; k < readonlyNodes.length; k += 1) {
+          readonlyNodes[k].readOnly = !unlocked;
+          setClass(readonlyNodes[k], "locked-field", !unlocked);
+        }
+      }
+      function recordKPress() {
+        var now = Date.now();
+        if (now - lastRecordAt < 120) return;
+        lastRecordAt = now;
+        kHits = kHits.filter(function (time) { return now - time <= 3000; });
+        kHits.push(now);
+        if (kHits.length >= 3) setUnlocked(true);
+      }
+      function handleKeyDown(event) {
+        if (!isKEvent(event)) return;
+        if (event.repeat || kIsDown) return;
+        kIsDown = true;
+        recordKPress();
+      }
+      function handleKeyPress(event) {
+        if (!isKEvent(event) || kIsDown) return;
+        kIsDown = true;
+        recordKPress();
+      }
+      function handleKeyUp(event) {
+        if (!isKEvent(event)) return;
+        if (!kIsDown) recordKPress();
+        kIsDown = false;
+      }
+      function handleBeforeInput(event) {
+        if (isKEvent(event)) recordKPress();
+      }
+      window.addEventListener("keydown", handleKeyDown, true);
+      window.addEventListener("keypress", handleKeyPress, true);
+      window.addEventListener("keyup", handleKeyUp, true);
+      document.addEventListener("beforeinput", handleBeforeInput, true);
+      var unlocked = false;
+      try { unlocked = window.sessionStorage.getItem("op_unlocked") === "1"; } catch (error) {}
+      setUnlocked(unlocked);
+    })();
+  </script>
+</body>
+</html>

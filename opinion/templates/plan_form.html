@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ "编辑方案" if plan else "新增方案" }}</h2>
+<form class="panel" method="post" action="{{ action }}">
+  <label>方案名称</label>
+  <input data-unlock-readonly type="text" name="name" value="{{ plan.name or '' }}" required>
+
+  <label>必须包含</label>
+  <textarea data-unlock-readonly name="kw">{{ plan.kw or '' }}</textarea>
+
+  <label>任一包含</label>
+  <textarea data-unlock-readonly name="any_kw">{{ plan.any_kw or '' }}</textarea>
+
+  <label>排除词</label>
+  <textarea data-unlock-readonly name="ex_kw">{{ plan.ex_kw or '' }}</textarea>
+
+  <label>数据源</label>
+  <div class="checks">
+    <label><input data-unlock-enable type="checkbox" name="sources" value="wechat" {% if not plan or "wechat" in (plan.sources or []) %}checked{% endif %}> 微信公众号</label>
+    <label class="disabled-source"><input data-always-disabled type="checkbox" name="sources" value="web" disabled> 博查搜索</label>
+    <label class="disabled-source"><input data-always-disabled type="checkbox" name="sources" value="brave" disabled> Brave Search</label>
+    <label><input data-unlock-enable type="checkbox" name="sources" value="tophub" {% if "tophub" in (plan.sources or []) %}checked{% endif %}> TopHub 热点</label>
+  </div>
+
+  <label><input data-unlock-enable type="checkbox" name="enabled" value="1" {% if not plan or plan.enabled %}checked{% endif %}> 启用</label>
+  <button data-op-only hidden class="button" type="submit">保存</button>
+</form>
+{% endblock %}
