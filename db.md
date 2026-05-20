@@ -67,3 +67,4 @@ Core fields:
 - `pushed_count`: number of Feishu messages sent.
 - `errors`: list of classification, notification, or local configuration errors that make the run failed.
 - `warnings`: list of source collection errors, such as third-party API timeouts. Runs with at least one successful source and only source warnings are marked `partial_success`.
+- `request_results`: per-request source snapshots for troubleshooting. Each entry stores `plan_id`, `plan_name`, `source`, the query condition, request parameters or payload, and the raw response body. Failed requests store `error` when no response body is available.

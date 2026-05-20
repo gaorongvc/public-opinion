@@ -13,11 +13,13 @@ class BraveSearchClient:
     def __init__(self, api_key, endpoint=None):
         self.api_key = api_key
         self.endpoint = endpoint or self.endpoint
+        self.request_results = []
 
     def search(self, plan, freshness="pd", count=10):
         if not self.api_key:
             raise RuntimeError("BRAVE_API_KEY is required for brave collection")
 
+        self.request_results = []
         query = build_search_query(plan)
         if not query:
             return []
@@ -30,10 +32,20 @@ class BraveSearchClient:
             "freshness": freshness,
             "result_filter": "web",
         }
-        response = self._request(params)
+        response = self._request_with_record(query, params)
         body = response.json()
         records = ((body.get("web") or {}).get("results") or [])
         return [map_web_result(record) for record in records]
+
+    def _request_with_record(self, query, params):
+        try:
+            response = self._request(params)
+        except Exception as exc:
+            self.request_results.append({"query": query, "request": dict(params), "error": str(exc)})
+            raise
+        body = response.json()
+        self.request_results.append({"query": query, "request": dict(params), "response": body})
+        return response
 
     @retry(tries=3, delay=3, logger=None)
     def _request(self, params):

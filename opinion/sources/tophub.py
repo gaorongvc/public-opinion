@@ -13,11 +13,13 @@ class TophubClient:
     def __init__(self, token, endpoint=None):
         self.token = token
         self.endpoint = endpoint or self.endpoint
+        self.request_results = []
 
-    def search(self, plan, page=1, max_pages=1, count=10, hashid="", fresh_hours=24):
+    def search(self, plan, count=10, hashid="", fresh_hours=24):
         if not self.token:
             raise RuntimeError("TOPHUB_TOKEN is required for tophub collection")
 
+        self.request_results = []
         queries = build_tophub_queries(plan)
         if not queries:
             return []
@@ -26,24 +28,31 @@ class TophubClient:
         cutoff = utcnow() - timedelta(hours=fresh_hours) if fresh_hours else None
         items = []
         for query in queries:
-            for current_page in range(int(page), int(page) + max(int(max_pages), 1)):
-                params = {"q": query, "p": current_page}
-                if hashid:
-                    params["hashid"] = hashid
-                response = self._request(params)
-                body = response.json()
-                for record in extract_tophub_records(body):
-                    item = map_hot_item(record)
-                    if not is_fresh_item(item, cutoff):
-                        continue
-                    items.append(item)
-                    if limit and len(items) >= limit:
-                        break
+            params = {"q": query, "p": 1}
+            if hashid:
+                params["hashid"] = hashid
+            response = self._request_with_record(query, params)
+            body = response.json()
+            for record in extract_tophub_records(body):
+                item = map_hot_item(record)
+                if not is_fresh_item(item, cutoff):
+                    continue
+                items.append(item)
                 if limit and len(items) >= limit:
                     break
             if limit and len(items) >= limit:
                 break
         return items
+
+    def _request_with_record(self, query, params):
+        try:
+            response = self._request(params)
+        except Exception as exc:
+            self.request_results.append({"query": query, "request": dict(params), "error": str(exc)})
+            raise
+        body = response.json()
+        self.request_results.append({"query": query, "request": dict(params), "response": body})
+        return response
 
     @retry(tries=3, delay=3, logger=None)
     def _request(self, params):

@@ -9,11 +9,13 @@ class BochaClient:
     def __init__(self, api_key, endpoint="https://api.bochaai.com/v1/web-search"):
         self.api_key = api_key
         self.endpoint = endpoint
+        self.request_results = []
 
     def search(self, plan, freshness="oneDay", count=10):
         if not self.api_key:
             raise RuntimeError("BOCHA_API_KEY is required for web collection")
 
+        self.request_results = []
         query = build_search_query(plan)
         if not query:
             return []
@@ -23,10 +25,20 @@ class BochaClient:
             "summary": True,
             "count": count,
         }
-        response = self._request(payload)
+        response = self._request_with_record(query, payload)
         body = response.json()
         records = (((body.get("data") or {}).get("webPages") or {}).get("value") or [])
         return [map_web_page(record) for record in records]
+
+    def _request_with_record(self, query, payload):
+        try:
+            response = self._request(payload)
+        except Exception as exc:
+            self.request_results.append({"query": query, "request": dict(payload), "error": str(exc)})
+            raise
+        body = response.json()
+        self.request_results.append({"query": query, "request": dict(payload), "response": body})
+        return response
 
     @retry(tries=3, delay=3, logger=None)
     def _request(self, payload):
