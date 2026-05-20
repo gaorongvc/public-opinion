@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import Tuple
 
 from opinion.env import load_env
 
@@ -16,10 +17,10 @@ class Settings:
     bocha_api_key: str = ""
     brave_api_key: str = ""
     tophub_token: str = ""
-    feishu_webhooks: tuple[str, ...] = DEFAULT_FEISHU_WEBHOOKS
+    feishu_webhooks: Tuple[str, ...] = DEFAULT_FEISHU_WEBHOOKS
 
 
-def _split_env_list(value: str) -> tuple[str, ...]:
+def _split_env_list(value: str) -> Tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 

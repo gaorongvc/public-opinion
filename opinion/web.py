@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -68,8 +70,8 @@ def create_plan(
     kw: str = Form(""),
     any_kw: str = Form(""),
     ex_kw: str = Form(""),
-    sources: list[str] = Form(["wechat"]),
-    enabled: str | None = Form(None),
+    sources: List[str] = Form(["wechat"]),
+    enabled: Optional[str] = Form(None),
 ):
     db = get_db()
     db.plans.insert_one(_plan_doc(name, kw, any_kw, ex_kw, sources, enabled))
@@ -90,8 +92,8 @@ def update_plan(
     kw: str = Form(""),
     any_kw: str = Form(""),
     ex_kw: str = Form(""),
-    sources: list[str] = Form(["wechat"]),
-    enabled: str | None = Form(None),
+    sources: List[str] = Form(["wechat"]),
+    enabled: Optional[str] = Form(None),
 ):
     db = get_db()
     plan = db.plans.find_one({"_id": object_id(plan_id)}) or db.plans.find_one({"_id": plan_id})
