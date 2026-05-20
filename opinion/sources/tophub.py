@@ -1,7 +1,10 @@
+from datetime import timedelta
+
 import requests
+from retry import retry
 
 from opinion.keywords import keyword_tokens
-from opinion.timeutils import parse_datetime
+from opinion.timeutils import parse_datetime, utcnow
 
 
 class TophubClient:
@@ -11,7 +14,7 @@ class TophubClient:
         self.token = token
         self.endpoint = endpoint or self.endpoint
 
-    def search(self, plan, page=1, max_pages=1, count=10, hashid=""):
+    def search(self, plan, page=1, max_pages=1, count=10, hashid="", fresh_hours=24):
         if not self.token:
             raise RuntimeError("TOPHUB_TOKEN is required for tophub collection")
 
@@ -20,27 +23,38 @@ class TophubClient:
             return []
 
         limit = max(int(count), 1) if count else 0
-        records = []
+        cutoff = utcnow() - timedelta(hours=fresh_hours) if fresh_hours else None
+        items = []
         for query in queries:
             for current_page in range(int(page), int(page) + max(int(max_pages), 1)):
                 params = {"q": query, "p": current_page}
                 if hashid:
                     params["hashid"] = hashid
-                response = requests.get(
-                    self.endpoint,
-                    params=params,
-                    headers={"Authorization": self.token},
-                    timeout=30,
-                )
-                response.raise_for_status()
+                response = self._request(params)
                 body = response.json()
-                records.extend(body.get("data", {}).get('items', []) or [])
-                if limit and len(records) >= limit:
+                for record in extract_tophub_records(body):
+                    item = map_hot_item(record)
+                    if not is_fresh_item(item, cutoff):
+                        continue
+                    items.append(item)
+                    if limit and len(items) >= limit:
+                        break
+                if limit and len(items) >= limit:
                     break
-            if limit and len(records) >= limit:
+            if limit and len(items) >= limit:
                 break
-        selected = records[:limit] if limit else records
-        return [map_hot_item(record) for record in selected]
+        return items
+
+    @retry(tries=3, delay=3, logger=None)
+    def _request(self, params):
+        response = requests.get(
+            self.endpoint,
+            params=params,
+            headers={"Authorization": self.token},
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response
 
 
 def build_tophub_queries(plan):
@@ -50,6 +64,22 @@ def build_tophub_queries(plan):
         return [" ".join([*kw_tokens, token]).strip() for token in any_tokens]
     query = " ".join(kw_tokens).strip()
     return [query] if query else []
+
+
+def extract_tophub_records(body):
+    data = body.get("data") or {}
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return data.get("items") or data.get("list") or []
+    return []
+
+
+def is_fresh_item(item, cutoff):
+    if cutoff is None:
+        return True
+    published_at = item.get("published_at")
+    return bool(published_at and published_at >= cutoff)
 
 
 def map_hot_item(record):

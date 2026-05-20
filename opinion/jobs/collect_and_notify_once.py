@@ -32,11 +32,14 @@ def run(db=None, settings=None):
         "collected_count": 0,
         "pushed_count": 0,
         "errors": [],
+        "warnings": [],
     }
     run_id = db.runs.insert_one(run_doc).inserted_id
     errors = []
+    warnings = []
     collected_count = 0
     pushed_count = 0
+    source_success_count = 0
 
     plans = list(db.plans.find({"enabled": True}))
     for plan in plans:
@@ -49,8 +52,9 @@ def run(db=None, settings=None):
             try:
                 raw_items = _search_source(client, source, plan)
             except Exception as exc:
-                errors.append(f"{plan.get('name')}:{source}: {exc}")
+                warnings.append(f"{plan.get('name')}:{source}: {exc}")
                 continue
+            source_success_count += 1
             for item in raw_items:
                 match_text = " ".join([item.get("title", ""), item.get("content", ""), item.get("summary", "")])
                 if not matches_plan(plan, match_text):
@@ -69,7 +73,7 @@ def run(db=None, settings=None):
                         {"$set": {"notified_at": utcnow(), "updated_at": utcnow()}},
                     )
 
-    status = "success" if not errors else "failed"
+    status = _run_status(errors, warnings, source_success_count)
     result = {
         "job": "collect_and_notify_once",
         "status": status,
@@ -79,6 +83,7 @@ def run(db=None, settings=None):
         "collected_count": collected_count,
         "pushed_count": pushed_count,
         "errors": errors,
+        "warnings": warnings,
     }
     db.runs.update_one({"_id": run_id}, {"$set": result})
     return result
@@ -103,6 +108,16 @@ def _search_source(client, source, plan):
     if source == "tophub":
         return client.search(plan, count=TOPHUB_COUNT)
     return client.search(plan)
+
+
+def _run_status(errors, warnings, source_success_count):
+    if errors:
+        return "failed"
+    if warnings and source_success_count:
+        return "partial_success"
+    if warnings:
+        return "failed"
+    return "success"
 
 
 def _store_item(db, item, plan_id, plan):

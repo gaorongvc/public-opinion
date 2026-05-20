@@ -1,6 +1,4 @@
 from datetime import datetime, timezone
-import sys
-from types import SimpleNamespace
 
 import pytest
 
@@ -43,6 +41,26 @@ class FakeSession:
 
     def get(self, url, **kwargs):
         self.calls.append((url, kwargs))
+        return FakeResponse(self.payload)
+
+
+class FlakySession:
+    def __init__(self, payload, failures=2):
+        self.payload = payload
+        self.failures = failures
+        self.calls = []
+
+    def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return self._response()
+
+    def get(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return self._response()
+
+    def _response(self):
+        if len(self.calls) <= self.failures:
+            raise TimeoutError("temporary timeout")
         return FakeResponse(self.payload)
 
 
@@ -155,6 +173,30 @@ def test_jizhile_client_maps_wechat_articles_and_payload(monkeypatch):
     assert items[0]["unique_key"] == "wechat:https://mp.weixin.qq.com/s/abc"
 
 
+def test_jizhile_client_retries_request_three_times(monkeypatch):
+    session = FlakySession(
+        {
+            "code": 0,
+            "data": [
+                {
+                    "title": "高榕资本消息",
+                    "url": "https://mp.weixin.qq.com/s/retry",
+                    "content": "高榕资本参与融资",
+                    "publish_time": 1710000000,
+                    "wx_name": "投资号",
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr(jizhile_source, "requests", session)
+
+    client = JizhileClient(api_key="key")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, period_days=1, max_pages=1)
+
+    assert len(session.calls) == 3
+    assert items[0]["unique_key"] == "wechat:https://mp.weixin.qq.com/s/retry"
+
+
 def test_bocha_client_maps_web_pages(monkeypatch):
     session = FakeSession(
         {
@@ -186,6 +228,32 @@ def test_bocha_client_maps_web_pages(monkeypatch):
     assert items[0]["unique_key"] == "web:https://example.com/a"
 
 
+def test_bocha_client_retries_request_three_times(monkeypatch):
+    session = FlakySession(
+        {
+            "data": {
+                "webPages": {
+                    "value": [
+                        {
+                            "name": "高榕资本新闻",
+                            "url": "https://example.com/bocha-retry",
+                            "summary": "高榕资本参与融资",
+                            "siteName": "Example",
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    monkeypatch.setattr(bocha_source, "requests", session)
+
+    client = BochaClient(api_key="bocha-key")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, freshness="oneDay", count=10)
+
+    assert len(session.calls) == 3
+    assert items[0]["unique_key"] == "web:https://example.com/bocha-retry"
+
+
 def test_brave_client_maps_web_results_and_uses_subscription_header(monkeypatch):
     session = FakeSession(
         {
@@ -215,6 +283,30 @@ def test_brave_client_maps_web_results_and_uses_subscription_header(monkeypatch)
     assert items[0]["unique_key"] == "brave:https://example.com/brave"
 
 
+def test_brave_client_retries_request_three_times(monkeypatch):
+    session = FlakySession(
+        {
+            "web": {
+                "results": [
+                    {
+                        "title": "高榕资本新闻",
+                        "url": "https://example.com/brave-retry",
+                        "description": "高榕资本参与融资",
+                        "profile": {"name": "Example"},
+                    }
+                ]
+            }
+        }
+    )
+    monkeypatch.setattr(brave_source, "requests", session)
+
+    client = BraveSearchClient(api_key="brave-key")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, freshness="pd", count=10)
+
+    assert len(session.calls) == 3
+    assert items[0]["unique_key"] == "brave:https://example.com/brave-retry"
+
+
 def test_tophub_client_maps_hot_items_and_uses_authorization_header(monkeypatch):
     session = FakeSession(
         {
@@ -232,6 +324,7 @@ def test_tophub_client_maps_hot_items_and_uses_authorization_header(monkeypatch)
         }
     )
     monkeypatch.setattr(tophub_source, "requests", session)
+    monkeypatch.setattr(tophub_source, "utcnow", lambda: datetime(2026, 5, 18, 11, tzinfo=timezone.utc))
 
     client = TophubClient(token="tophub-token")
     items = client.search({"kw": "高榕", "any_kw": "融资 募资", "ex_kw": "招聘"}, count=10)
@@ -242,6 +335,68 @@ def test_tophub_client_maps_hot_items_and_uses_authorization_header(monkeypatch)
     assert items[0]["source_name"] == "微博热搜"
     assert items[0]["metrics"]["hot"] == 567890
     assert items[0]["unique_key"] == "tophub:https://example.com/tophub"
+
+
+def test_tophub_client_retries_request_three_times(monkeypatch):
+    session = FlakySession(
+        {
+            "data": [
+                {
+                    "title": "高榕资本新闻",
+                    "url": "https://example.com/tophub-retry",
+                    "source": "微博热搜",
+                    "time": "2026-05-18 10:00:00",
+                }
+            ],
+            "page": 1,
+            "total": 1,
+        }
+    )
+    monkeypatch.setattr(tophub_source, "requests", session)
+    monkeypatch.setattr(tophub_source, "utcnow", lambda: datetime(2026, 5, 18, 11, tzinfo=timezone.utc))
+
+    client = TophubClient(token="tophub-token")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, count=10)
+
+    assert len(session.calls) == 3
+    assert items[0]["unique_key"] == "tophub:https://example.com/tophub-retry"
+
+
+def test_tophub_client_filters_items_older_than_24_hours(monkeypatch):
+    session = FakeSession(
+        {
+            "data": {
+                "items": [
+                    {
+                        "title": "高榕资本今日新闻",
+                        "url": "https://example.com/tophub/new",
+                        "source": "微博热搜",
+                        "time": "2026-05-19 09:30:00",
+                    },
+                    {
+                        "title": "高榕资本历史新闻",
+                        "url": "https://example.com/tophub/old",
+                        "source": "微博热搜",
+                        "time": "2026-05-18 08:59:59",
+                    },
+                    {
+                        "title": "高榕资本无时间新闻",
+                        "url": "https://example.com/tophub/unknown",
+                        "source": "微博热搜",
+                    },
+                ]
+            },
+            "page": 1,
+            "total": 3,
+        }
+    )
+    monkeypatch.setattr(tophub_source, "requests", session)
+    monkeypatch.setattr(tophub_source, "utcnow", lambda: datetime(2026, 5, 19, 9, tzinfo=timezone.utc))
+
+    client = TophubClient(token="tophub-token")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, count=10)
+
+    assert [item["url"] for item in items] == ["https://example.com/tophub/new"]
 
 
 def test_tophub_queries_use_kw_plus_single_any_kw_without_operators():
@@ -266,7 +421,7 @@ def test_classify_item_uses_lm_chat(monkeypatch):
             calls.append(("chat", messages, to_json))
             return '{"related": true, "sentiment": "positive", "reason": "高榕参与融资"}'
 
-    monkeypatch.setitem(sys.modules, "grlibs.lm", SimpleNamespace(LM=FakeLM))
+    monkeypatch.setattr(classifier, "LM", FakeLM)
 
     result = classifier.classify_item(
         {
@@ -426,6 +581,59 @@ def test_collect_and_notify_once_does_not_send_existing_related_item(monkeypatch
     assert result["pushed_count"] == 0
     assert sent == []
     assert db.items.find_one({"unique_key": "brave:https://example.com/a"})["matched_plan_ids"] == ["plan-1"]
+
+
+def test_collect_and_notify_once_marks_partial_success_when_one_source_times_out(monkeypatch):
+    db = FakeDb()
+    db.plans.insert_one(
+        {
+            "_id": "plan-1",
+            "name": "高榕品牌关键词",
+            "kw": "高榕",
+            "any_kw": "融资",
+            "ex_kw": "",
+            "sources": ["wechat", "brave"],
+            "enabled": True,
+        }
+    )
+
+    class TimeoutWechat:
+        def search(self, plan, period_days=1, max_pages=1):
+            raise TimeoutError("Read timed out")
+
+    class FakeBrave:
+        def search(self, plan, freshness="pd", count=10):
+            return [
+                {
+                    "unique_key": "brave:https://example.com/a",
+                    "source_type": "brave",
+                    "source_name": "Example",
+                    "title": "高榕资本消息",
+                    "url": "https://example.com/a",
+                    "content": "高榕资本参与融资",
+                    "summary": "高榕资本参与融资",
+                    "published_at": None,
+                    "metrics": {},
+                    "raw": {},
+                }
+            ]
+
+    sent = []
+    monkeypatch.setattr(collect_job, "load_settings", lambda: object())
+    monkeypatch.setattr(collect_job, "_default_source_clients", lambda settings: {"wechat": TimeoutWechat(), "brave": FakeBrave()})
+    monkeypatch.setattr(
+        collect_job,
+        "classify_item",
+        lambda item, plan: {"related": False, "sentiment": "neutral", "reason": "测试"},
+    )
+    monkeypatch.setattr(collect_job, "send_to_feishu", sent.append)
+
+    result = collect_job.run(db=db)
+
+    assert result["status"] == "partial_success"
+    assert result["collected_count"] == 1
+    assert result["errors"] == []
+    assert "高榕品牌关键词:wechat: Read timed out" in result["warnings"][0]
 
 
 def test_collect_and_notify_once_records_notify_error_without_marking_notified(monkeypatch):

@@ -1,4 +1,5 @@
 import requests
+from retry import retry
 
 from opinion.timeutils import parse_datetime
 
@@ -27,8 +28,7 @@ class JizhileClient:
                 "verifycode": "",
                 "type": 1,
             }
-            response = requests.post(self.endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
-            response.raise_for_status()
+            response = self._request(payload)
             body = response.json()
             if body.get("code") not in (0, None):
                 raise RuntimeError(f"Jizhile API error: {body.get('msg') or body.get('message') or body.get('code')}")
@@ -37,6 +37,12 @@ class JizhileClient:
                 break
             items.extend(map_article(record) for record in records)
         return items
+
+    @retry(tries=3, delay=3, logger=None)
+    def _request(self, payload):
+        response = requests.post(self.endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+        response.raise_for_status()
+        return response
 
 
 def map_article(record):

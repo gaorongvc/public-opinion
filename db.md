@@ -58,11 +58,12 @@ UI task page.
 Core fields:
 
 - `job`: `collect_and_notify_once` or `daily_summary`.
-- `status`: `running`, `success`, or `failed`.
+- `status`: `running`, `success`, `partial_success`, or `failed`.
 - `started_at`: job start time.
 - `ended_at`: job end time.
 - `plan_count`: number of enabled plans read by collection jobs.
 - `collected_count`: number of source items accepted by keyword filtering.
 - `item_count`: number of related items included in a daily summary.
 - `pushed_count`: number of Feishu messages sent.
-- `errors`: list of source, classification, or notification errors.
+- `errors`: list of classification, notification, or local configuration errors that make the run failed.
+- `warnings`: list of source collection errors, such as third-party API timeouts. Runs with at least one successful source and only source warnings are marked `partial_success`.

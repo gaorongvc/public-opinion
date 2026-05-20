@@ -11,7 +11,7 @@
       <th>方案数</th>
       <th>采集/统计</th>
       <th>推送</th>
-      <th>错误</th>
+      <th>错误/警告</th>
     </tr>
   </thead>
   <tbody>
@@ -24,7 +24,13 @@
       <td>{{ run.plan_count or "" }}</td>
       <td>{{ run.collected_count or run.item_count or 0 }}</td>
       <td>{{ run.pushed_count or 0 }}</td>
-      <td>{{ "; ".join(run.errors or []) }}</td>
+      <td>
+        {{ "; ".join(run.errors or []) }}
+        {% if run.warnings %}
+          {% if run.errors %}; {% endif %}
+          {{ "; ".join(run.warnings or []) }}
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

@@ -1,4 +1,5 @@
 import requests
+from retry import retry
 
 from opinion.keywords import build_search_query
 from opinion.timeutils import parse_datetime
@@ -22,6 +23,13 @@ class BochaClient:
             "summary": True,
             "count": count,
         }
+        response = self._request(payload)
+        body = response.json()
+        records = (((body.get("data") or {}).get("webPages") or {}).get("value") or [])
+        return [map_web_page(record) for record in records]
+
+    @retry(tries=3, delay=3, logger=None)
+    def _request(self, payload):
         response = requests.post(
             self.endpoint,
             json=payload,
@@ -29,9 +37,7 @@ class BochaClient:
             timeout=30,
         )
         response.raise_for_status()
-        body = response.json()
-        records = (((body.get("data") or {}).get("webPages") or {}).get("value") or [])
-        return [map_web_page(record) for record in records]
+        return response
 
 
 def map_web_page(record):

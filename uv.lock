@@ -1459,6 +1459,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "requests" },
+    { name = "retry" },
     { name = "uvicorn" },
 ]
 
@@ -1476,6 +1477,7 @@ requires-dist = [
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "requests" },
+    { name = "retry" },
     { name = "uvicorn" },
 ]
 
