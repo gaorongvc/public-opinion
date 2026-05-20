@@ -7,6 +7,7 @@ import opinion.jobs.daily_summary as daily_summary_job
 import opinion.sources.bocha as bocha_source
 import opinion.sources.brave as brave_source
 import opinion.sources.jizhile as jizhile_source
+import opinion.sources.toutiao as toutiao_source
 import opinion.sources.tophub as tophub_source
 import opinion.classifier as classifier
 from opinion.classifier import parse_llm_json
@@ -16,12 +17,17 @@ from opinion.notifier import FeishuNotifyError, ensure_feishu_success
 from opinion.sources.bocha import BochaClient
 from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
+from opinion.sources.toutiao import ToutiaoSearchClient, build_toutiao_queries
 from opinion.sources.tophub import TophubClient, build_tophub_queries
 
 
 class FakeResponse:
     def __init__(self, payload):
         self.payload = payload
+
+    @property
+    def text(self):
+        return self.payload if isinstance(self.payload, str) else ""
 
     def json(self):
         return self.payload
@@ -42,6 +48,20 @@ class FakeSession:
     def get(self, url, **kwargs):
         self.calls.append((url, kwargs))
         return FakeResponse(self.payload)
+
+
+class SequenceSession:
+    def __init__(self, payloads):
+        self.payloads = list(payloads)
+        self.calls = []
+
+    def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return FakeResponse(self.payloads.pop(0))
+
+    def get(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return FakeResponse(self.payloads.pop(0))
 
 
 class FlakySession:
@@ -327,6 +347,133 @@ def test_brave_client_retries_request_three_times(monkeypatch):
 
     assert len(session.calls) == 3
     assert items[0]["unique_key"] == "brave:https://example.com/brave-retry"
+
+
+def test_toutiao_client_maps_jina_html_and_uses_reader_headers(monkeypatch):
+    session = SequenceSession(
+        [
+            """
+            <div class="s-result-list">
+              <a href="/search?filter_period=all&max_time=1779287545&min_time=0">1</a>
+            </div>
+            """,
+            """
+            <div class="s-result-list">
+              <div class="result-card">
+                <a href="https://www.toutiao.com/article/123">高榕资本新闻</a>
+                <span>今日头条</span>
+                <p>高榕资本参与融资</p>
+                <time datetime="2026-05-20T09:00:00+08:00">2026-05-20</time>
+              </div>
+            </div>
+            """,
+        ]
+    )
+    monkeypatch.setattr(toutiao_source, "requests", session)
+    monkeypatch.setattr(toutiao_source, "utcnow", lambda: datetime(2026, 5, 20, tzinfo=timezone.utc))
+
+    client = ToutiaoSearchClient(jina_api_key="jina-key")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, period_days=1, count=10)
+
+    assert session.calls[0][0] == "https://r.jina.ai/https://so.toutiao.com/search"
+    assert session.calls[0][1]["params"]["keyword"] == "高榕 融资"
+    assert "filter_period" not in session.calls[0][1]["params"]
+    assert session.calls[1][1]["headers"]["Authorization"] == "Bearer jina-key"
+    assert session.calls[1][1]["headers"]["X-Return-Format"] == "html"
+    assert session.calls[1][1]["headers"]["X-Target-Selector"] == ".s-result-list"
+    assert session.calls[1][1]["params"]["keyword"] == "高榕 融资"
+    assert session.calls[1][1]["params"]["filter_period"] == "day"
+    assert session.calls[1][1]["params"]["max_time"] == 1779287545
+    assert session.calls[1][1]["params"]["min_time"] == 1779201145
+    assert items[0]["source_type"] == "toutiao"
+    assert items[0]["source_name"] == "今日头条"
+    assert items[0]["summary"] == "高榕资本参与融资"
+    assert items[0]["unique_key"] == "toutiao:https://www.toutiao.com/article/123"
+
+
+def test_toutiao_client_retries_request_three_times(monkeypatch):
+    session = FlakySession(
+        """
+        <div class="s-result-list">
+          <article>
+            <a href="https://www.toutiao.com/article/retry">高榕资本新闻</a>
+            <p>高榕资本参与融资</p>
+          </article>
+        </div>
+        """
+    )
+    monkeypatch.setattr(toutiao_source, "requests", session)
+    monkeypatch.setattr(toutiao_source, "utcnow", lambda: datetime(2026, 5, 20, tzinfo=timezone.utc))
+
+    client = ToutiaoSearchClient(jina_api_key="jina-key")
+    items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, period_days=1, count=10)
+
+    assert len(session.calls) == 4
+    assert "filter_period" not in session.calls[2][1]["params"]
+    assert session.calls[3][1]["params"]["filter_period"] == "day"
+    assert items[0]["unique_key"] == "toutiao:https://www.toutiao.com/article/retry"
+
+
+def test_toutiao_client_skips_author_profile_link_and_unwraps_jump_url(monkeypatch):
+    session = FakeSession(
+        """
+        <div class="s-result-list">
+          <div class="result-content" data-i="0">
+            <a href="https://sou.toutiao.com/search/jump?url=https%3A%2F%2Fwww.toutiao.com%2Fc%2Fuser%2F3237381370288883%2F&aid=4916">
+              <span>拼到思维</span>
+              <span>14小时前</span>
+              <span>·</span>
+              <span>头条新锐创作者</span>
+            </a>
+            <a href="https://sou.toutiao.com/search/jump?url=https%3A%2F%2Fwww.toutiao.com%2Fa1865656332658816%2F%3Fsource%3Dinput&aid=4916">本轮融资由高榕创投联合领投</a>
+            <span>2点赞</span>
+          </div>
+        </div>
+        """
+    )
+    monkeypatch.setattr(toutiao_source, "requests", session)
+    monkeypatch.setattr(toutiao_source, "utcnow", lambda: datetime(2026, 5, 20, tzinfo=timezone.utc))
+
+    client = ToutiaoSearchClient(jina_api_key="jina-key")
+    items = client.search({"kw": "高榕创投", "any_kw": "", "ex_kw": ""}, period_days=1, count=10)
+
+    assert items[0]["source_name"] == "拼到思维"
+    assert items[0]["title"] == "本轮融资由高榕创投联合领投"
+    assert items[0]["url"] == "https://www.toutiao.com/a1865656332658816/?source=input"
+    assert items[0]["unique_key"] == "toutiao:https://www.toutiao.com/a1865656332658816/?source=input"
+
+
+def test_toutiao_client_extracts_summary_and_source_from_result_card(monkeypatch):
+    session = FakeSession(
+        """
+        <div class="s-result-list">
+          <div class="result-content" data-i="1">
+            <div data-log-click="{&quot;pos&quot;:&quot;title&quot;}">
+              <a href="https://sou.toutiao.com/search/jump?url=http%3A%2F%2Fwww.toutiao.com%2Fa7641761524045890063%2F%3Fchannel%3D&aid=4916">解决中小企业出海支付难题</a>
+            </div>
+            <span class="text-underline-hover"><em>高榕创投</em>是最大机构股东，持股约12.83%</span>
+            <div class="cs-source-content">
+              <span class="text-ellipsis">时代财经</span>
+              <span class="text-ellipsis">12小时前</span>
+            </div>
+          </div>
+        </div>
+        """
+    )
+    monkeypatch.setattr(toutiao_source, "requests", session)
+    monkeypatch.setattr(toutiao_source, "utcnow", lambda: datetime(2026, 5, 20, tzinfo=timezone.utc))
+
+    client = ToutiaoSearchClient(jina_api_key="jina-key")
+    items = client.search({"kw": "高榕创投", "any_kw": "", "ex_kw": ""}, period_days=1, count=10)
+
+    assert items[0]["source_name"] == "时代财经"
+    assert items[0]["summary"] == "高榕创投是最大机构股东，持股约12.83%"
+    assert items[0]["published_at"] is not None
+
+
+def test_toutiao_queries_use_kw_plus_single_any_kw_without_operators():
+    plan = {"kw": "高榕 资本", "any_kw": "融资 投资", "ex_kw": "招聘"}
+    assert build_toutiao_queries(plan) == ["高榕 资本 融资", "高榕 资本 投资"]
 
 
 def test_tophub_client_maps_hot_items_and_uses_authorization_header(monkeypatch):

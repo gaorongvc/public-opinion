@@ -7,6 +7,7 @@ from opinion.settings import load_settings
 from opinion.sources.bocha import BochaClient
 from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
+from opinion.sources.toutiao import ToutiaoSearchClient
 from opinion.sources.tophub import TophubClient
 from opinion.timeutils import utcnow
 
@@ -14,6 +15,7 @@ from opinion.timeutils import utcnow
 BOCHA_COUNT = 10
 BRAVE_COUNT = 10
 TOPHUB_COUNT = 10
+TOUTIAO_COUNT = 10
 
 
 def run(db=None, settings=None):
@@ -102,6 +104,7 @@ def _default_source_clients(settings):
         "web": BochaClient(settings.bocha_api_key),
         "brave": BraveSearchClient(settings.brave_api_key),
         "tophub": TophubClient(settings.tophub_token),
+        "toutiao": ToutiaoSearchClient(settings.jina_api_key),
     }
 
 
@@ -114,6 +117,8 @@ def _search_source(client, source, plan):
         return client.search(plan, freshness="pd", count=BRAVE_COUNT)
     if source == "tophub":
         return client.search(plan, count=TOPHUB_COUNT)
+    if source == "toutiao":
+        return client.search(plan, period_days=1, count=TOUTIAO_COUNT)
     return client.search(plan)
 
 

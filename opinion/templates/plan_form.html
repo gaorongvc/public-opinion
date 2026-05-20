@@ -20,6 +20,7 @@
     <label class="disabled-source"><input data-always-disabled type="checkbox" name="sources" value="web" disabled> 博查搜索</label>
     <label class="disabled-source"><input data-always-disabled type="checkbox" name="sources" value="brave" disabled> Brave Search</label>
     <label><input data-unlock-enable type="checkbox" name="sources" value="tophub" {% if "tophub" in (plan.sources or []) %}checked{% endif %}> TopHub 热点</label>
+    <label><input data-unlock-enable type="checkbox" name="sources" value="toutiao" {% if "toutiao" in (plan.sources or []) %}checked{% endif %}> 头条搜索</label>
   </div>
 
   <label><input data-unlock-enable type="checkbox" name="enabled" value="1" {% if not plan or plan.enabled %}checked{% endif %}> 启用</label>

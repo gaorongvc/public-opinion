@@ -20,6 +20,7 @@ SOURCE_TEXT = {
     "web": "博查搜索",
     "brave": "Brave Search",
     "tophub": "TopHub 热点",
+    "toutiao": "头条搜索",
 }
 
 

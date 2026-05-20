@@ -17,6 +17,7 @@ class Settings:
     bocha_api_key: str = ""
     brave_api_key: str = ""
     tophub_token: str = ""
+    jina_api_key: str = ""
     feishu_webhooks: Tuple[str, ...] = DEFAULT_FEISHU_WEBHOOKS
 
 
@@ -32,5 +33,6 @@ def load_settings() -> Settings:
         bocha_api_key=os.getenv("BOCHA_API_KEY", ""),
         brave_api_key=os.getenv("BRAVE_API_KEY", ""),
         tophub_token=os.getenv("TOPHUB_TOKEN", ""),
+        jina_api_key=os.getenv("JINA_API_KEY", ""),
         feishu_webhooks=webhooks or DEFAULT_FEISHU_WEBHOOKS,
     )

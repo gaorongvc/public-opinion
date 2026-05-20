@@ -15,7 +15,7 @@ Core fields:
 - `kw`: required keywords. All tokens must be present.
 - `any_kw`: optional keywords. At least one token must be present when set.
 - `ex_kw`: exclusion keywords. Any hit filters the item out.
-- `sources`: enabled data sources, currently `wechat`, `web`, `brave`, `tophub`, or any combination.
+- `sources`: enabled data sources, currently `wechat`, `web`, `brave`, `tophub`, `toutiao`, or any combination.
 - `enabled`: whether the plan is active.
 - `created_at`: creation time.
 - `updated_at`: last edit time.
@@ -23,14 +23,14 @@ Core fields:
 ### `items`
 
 Stores normalized public opinion records collected from 极致了, 博查搜索, Brave,
-and TopHub.
+TopHub, and 头条搜索.
 Documents are deduplicated by `unique_key`, so repeated runs can safely process
 the same source results.
 
 Core fields:
 
-- `unique_key`: stable dedupe key, such as `wechat:<url>`, `web:<url>`, `brave:<url>`, or `tophub:<url>`.
-- `source_type`: `wechat`, `web`, `brave`, or `tophub`.
+- `unique_key`: stable dedupe key, such as `wechat:<url>`, `web:<url>`, `brave:<url>`, `tophub:<url>`, or `toutiao:<url>`.
+- `source_type`: `wechat`, `web`, `brave`, `tophub`, or `toutiao`.
 - `source_name`: WeChat account name, website name, hot-list source name, or source display name.
 - `title`: article or page title.
 - `url`: original content URL.
