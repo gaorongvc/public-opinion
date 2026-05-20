@@ -1,6 +1,7 @@
 import json
 import re
 
+from grlibs.lm import LM
 
 CLASSIFY_PROMPT = """你将获得一条舆情内容和一个监控方案。
 请判断内容是否与监控方案相关，并给出情感标签。
@@ -32,7 +33,7 @@ def parse_llm_json(value):
     start = text.find("{")
     end = text.rfind("}")
     if start >= 0 and end >= start:
-        text = text[start : end + 1]
+        text = text[start: end + 1]
     data = json.loads(text)
     return normalize_classification(data)
 
@@ -48,7 +49,7 @@ def normalize_classification(data):
     }
 
 
-def classify_item(item, plan, model_name="gpt-4.1"):
+def classify_item(item, plan, model_name="openrouter/deepseek/deepseek-v4-flash"):
     text = f"{item.get('title', '')}{item.get('content', '')}{item.get('summary', '')}"
     if len(text.strip()) < 20:
         return {"related": False, "sentiment": "neutral", "reason": "内容过短"}
@@ -62,8 +63,22 @@ def classify_item(item, plan, model_name="gpt-4.1"):
         source_name=item.get("source_name", ""),
         content=(item.get("content") or item.get("summary") or "")[:4000],
     )
-    from grlibs.gpt import GPT
 
-    result = GPT().completion(prompt, model_name=model_name)
+    result = LM(model_name).chat([{"role": "user", "content": prompt}], to_json=False)
     return parse_llm_json(result)
 
+
+if __name__ == '__main__':
+    import time
+    a = time.time()
+    result = classify_item(
+        {
+            "title": "高榕资本消息",
+            "source_name": "投资号",
+            "content": "高榕资本参与医药魔方新一轮融资，市场反馈较好。",
+            "summary": "",
+        },
+        {"name": "高榕品牌关键词", "kw": "高榕", "any_kw": "投资", "ex_kw": ""}
+    )
+    print(result)
+    print(time.time() - a)

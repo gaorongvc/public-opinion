@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +10,7 @@ import opinion.sources.bocha as bocha_source
 import opinion.sources.brave as brave_source
 import opinion.sources.jizhile as jizhile_source
 import opinion.sources.tophub as tophub_source
+import opinion.classifier as classifier
 from opinion.classifier import parse_llm_json
 from opinion.formatters import format_daily_summary, format_item_message
 from opinion.keywords import build_search_query, keyword_tokens, matches_plan
@@ -249,6 +252,38 @@ def test_tophub_queries_use_kw_plus_single_any_kw_without_operators():
 def test_parse_llm_json_accepts_fenced_json():
     data = parse_llm_json('```json\n{"related": true, "sentiment": "negative", "reason": "涉及负面舆情"}\n```')
     assert data == {"related": True, "sentiment": "negative", "reason": "涉及负面舆情"}
+
+
+def test_classify_item_uses_lm_chat(monkeypatch):
+    calls = []
+
+    class FakeLM:
+        def __init__(self, model):
+            self.model = model
+            calls.append(("init", model))
+
+        def chat(self, messages, to_json=True):
+            calls.append(("chat", messages, to_json))
+            return '{"related": true, "sentiment": "positive", "reason": "高榕参与融资"}'
+
+    monkeypatch.setitem(sys.modules, "grlibs.lm", SimpleNamespace(LM=FakeLM))
+
+    result = classifier.classify_item(
+        {
+            "title": "高榕资本消息",
+            "source_name": "投资号",
+            "content": "高榕资本参与医药魔方新一轮融资，市场反馈较好。",
+            "summary": "",
+        },
+        {"name": "高榕品牌关键词", "kw": "高榕", "any_kw": "融资", "ex_kw": ""},
+        model_name="openai/gpt-4.1",
+    )
+
+    assert result == {"related": True, "sentiment": "positive", "reason": "高榕参与融资"}
+    assert calls[0] == ("init", "openai/gpt-4.1")
+    assert calls[1][2] is False
+    assert calls[1][1][0]["role"] == "user"
+    assert "高榕资本消息" in calls[1][1][0]["content"]
 
 
 def test_format_item_message_matches_feishu_card_style():

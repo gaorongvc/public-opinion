@@ -34,7 +34,7 @@ class TophubClient:
                 )
                 response.raise_for_status()
                 body = response.json()
-                records.extend(body.get("data") or [])
+                records.extend(body.get("data", {}).get('items', []) or [])
                 if limit and len(records) >= limit:
                     break
             if limit and len(records) >= limit:
@@ -55,6 +55,7 @@ def build_tophub_queries(plan):
 def map_hot_item(record):
     url = record.get("url") or ""
     title = record.get("title") or ""
+    description = record.get("description") or ""
     source_name = record.get("source") or record.get("node") or "TopHub"
     published_at = parse_datetime(record.get("time") or record.get("created_at") or record.get("date"))
     unique_value = url or f"{source_name}:{title}:{record.get('time') or ''}"
@@ -64,8 +65,8 @@ def map_hot_item(record):
         "source_name": source_name,
         "title": title,
         "url": url,
-        "content": title,
-        "summary": title,
+        "content": description,
+        "summary": description[:300],
         "published_at": published_at,
         "metrics": {"hot": record.get("hot")},
         "raw": record,
@@ -80,8 +81,8 @@ if __name__ == "__main__":
     load_env()
     client = TophubClient(os.getenv("TOPHUB_TOKEN", ""))
     plan = {
-        "kw": os.getenv("OPINION_TEST_KW", "高榕 创投"),
-        "any_kw": os.getenv("OPINION_TEST_ANY_KW", "融资 募资"),
+        "kw": os.getenv("OPINION_TEST_KW", "高榕创投"),
+        "any_kw": os.getenv("OPINION_TEST_ANY_KW", ""),
         "ex_kw": os.getenv("OPINION_TEST_EX_KW", ""),
     }
     items = client.search(plan, count=10)
