@@ -6,10 +6,9 @@ from opinion.notifier import send_to_feishu
 from opinion.timeutils import utcnow
 
 
-def run(db=None, send_message=None, now=None):
+def run(db=None, now=None):
     db = db or get_db()
     ensure_indexes(db)
-    send_message = send_message or send_to_feishu
     now = now or utcnow()
     start_at = now - timedelta(days=1)
 
@@ -24,9 +23,9 @@ def run(db=None, send_message=None, now=None):
     items = list(db.items.find({"created_at": {"$gte": start_at}, "related": True}))
     content = format_daily_summary(items, start_at, now)
     try:
-        send_message(content, title=f"舆情日报 {now.strftime('%Y-%m-%d')}")
+        send_to_feishu(content, title=f"舆情日报 {now.strftime('%Y-%m-%d')}")
     except TypeError:
-        send_message(content)
+        send_to_feishu(content)
     except Exception as exc:
         errors.append(f"notify failed: {exc}")
 
@@ -45,4 +44,3 @@ def run(db=None, send_message=None, now=None):
 
 if __name__ == "__main__":
     print(run())
-

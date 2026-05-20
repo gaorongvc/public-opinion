@@ -2,10 +2,14 @@ from datetime import datetime, timezone
 
 import pytest
 
+import opinion.jobs.collect_and_notify_once as collect_job
+import opinion.jobs.daily_summary as daily_summary_job
+import opinion.sources.bocha as bocha_source
+import opinion.sources.brave as brave_source
+import opinion.sources.jizhile as jizhile_source
+import opinion.sources.tophub as tophub_source
 from opinion.classifier import parse_llm_json
 from opinion.formatters import format_daily_summary, format_item_message
-from opinion.jobs.collect_and_notify_once import run as collect_and_notify_once
-from opinion.jobs.daily_summary import run as daily_summary
 from opinion.keywords import build_search_query, keyword_tokens, matches_plan
 from opinion.notifier import FeishuNotifyError, ensure_feishu_success
 from opinion.sources.bocha import BochaClient
@@ -120,7 +124,7 @@ def test_build_search_query_uses_google_compatible_boolean_logic():
     assert build_search_query(plan) == '高榕 资本 (融资 OR 投资) -招聘 -离职'
 
 
-def test_jizhile_client_maps_wechat_articles_and_payload():
+def test_jizhile_client_maps_wechat_articles_and_payload(monkeypatch):
     session = FakeSession(
         {
             "code": 0,
@@ -136,7 +140,9 @@ def test_jizhile_client_maps_wechat_articles_and_payload():
             ],
         }
     )
-    client = JizhileClient(api_key="key", session=session)
+    monkeypatch.setattr(jizhile_source, "requests", session)
+
+    client = JizhileClient(api_key="key")
     items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, period_days=1, max_pages=1)
 
     assert session.calls[0][1]["json"]["kw"] == "高榕"
@@ -146,7 +152,7 @@ def test_jizhile_client_maps_wechat_articles_and_payload():
     assert items[0]["unique_key"] == "wechat:https://mp.weixin.qq.com/s/abc"
 
 
-def test_bocha_client_maps_web_pages():
+def test_bocha_client_maps_web_pages(monkeypatch):
     session = FakeSession(
         {
             "data": {
@@ -165,7 +171,9 @@ def test_bocha_client_maps_web_pages():
             }
         }
     )
-    client = BochaClient(api_key="bocha-key", session=session)
+    monkeypatch.setattr(bocha_source, "requests", session)
+
+    client = BochaClient(api_key="bocha-key")
     items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, freshness="oneDay", count=10)
 
     assert session.calls[0][1]["headers"]["Authorization"] == "Bearer bocha-key"
@@ -175,7 +183,7 @@ def test_bocha_client_maps_web_pages():
     assert items[0]["unique_key"] == "web:https://example.com/a"
 
 
-def test_brave_client_maps_web_results_and_uses_subscription_header():
+def test_brave_client_maps_web_results_and_uses_subscription_header(monkeypatch):
     session = FakeSession(
         {
             "web": {
@@ -191,7 +199,9 @@ def test_brave_client_maps_web_results_and_uses_subscription_header():
             }
         }
     )
-    client = BraveSearchClient(api_key="brave-key", session=session)
+    monkeypatch.setattr(brave_source, "requests", session)
+
+    client = BraveSearchClient(api_key="brave-key")
     items = client.search({"kw": "高榕", "any_kw": "融资", "ex_kw": ""}, freshness="pd", count=10)
 
     assert session.calls[0][1]["headers"]["X-Subscription-Token"] == "brave-key"
@@ -202,7 +212,7 @@ def test_brave_client_maps_web_results_and_uses_subscription_header():
     assert items[0]["unique_key"] == "brave:https://example.com/brave"
 
 
-def test_tophub_client_maps_hot_items_and_uses_authorization_header():
+def test_tophub_client_maps_hot_items_and_uses_authorization_header(monkeypatch):
     session = FakeSession(
         {
             "data": [
@@ -218,7 +228,9 @@ def test_tophub_client_maps_hot_items_and_uses_authorization_header():
             "total": 1,
         }
     )
-    client = TophubClient(token="tophub-token", session=session)
+    monkeypatch.setattr(tophub_source, "requests", session)
+
+    client = TophubClient(token="tophub-token")
     items = client.search({"kw": "高榕", "any_kw": "融资 募资", "ex_kw": "招聘"}, count=10)
 
     assert session.calls[0][1]["headers"]["Authorization"] == "tophub-token"
@@ -265,7 +277,7 @@ def test_ensure_feishu_success_raises_for_non_zero_business_code():
         ensure_feishu_success({"code": 11232, "msg": "frequency limited"}, webhook="https://example.com/hook")
 
 
-def test_collect_and_notify_once_writes_items_runs_and_sends_related_item():
+def test_collect_and_notify_once_writes_items_runs_and_sends_related_item(monkeypatch):
     db = FakeDb()
     db.plans.insert_one(
         {
@@ -297,13 +309,16 @@ def test_collect_and_notify_once_writes_items_runs_and_sends_related_item():
             ]
 
     sent = []
-
-    result = collect_and_notify_once(
-        db=db,
-        source_clients={"wechat": FakeWechat()},
-        classify=lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
-        send_message=lambda message: sent.append(message),
+    monkeypatch.setattr(collect_job, "load_settings", lambda: object())
+    monkeypatch.setattr(collect_job, "_default_source_clients", lambda settings: {"wechat": FakeWechat()})
+    monkeypatch.setattr(
+        collect_job,
+        "classify_item",
+        lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
     )
+    monkeypatch.setattr(collect_job, "send_to_feishu", sent.append)
+
+    result = collect_job.run(db=db)
 
     assert result["status"] == "success"
     assert result["collected_count"] == 1
@@ -313,7 +328,7 @@ def test_collect_and_notify_once_writes_items_runs_and_sends_related_item():
     assert "高榕参与融资" in sent[0]
 
 
-def test_collect_and_notify_once_does_not_send_existing_related_item():
+def test_collect_and_notify_once_does_not_send_existing_related_item(monkeypatch):
     db = FakeDb()
     db.plans.insert_one(
         {
@@ -360,13 +375,16 @@ def test_collect_and_notify_once_does_not_send_existing_related_item():
             ]
 
     sent = []
-
-    result = collect_and_notify_once(
-        db=db,
-        source_clients={"brave": FakeBrave()},
-        classify=lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
-        send_message=lambda message: sent.append(message),
+    monkeypatch.setattr(collect_job, "load_settings", lambda: object())
+    monkeypatch.setattr(collect_job, "_default_source_clients", lambda settings: {"brave": FakeBrave()})
+    monkeypatch.setattr(
+        collect_job,
+        "classify_item",
+        lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
     )
+    monkeypatch.setattr(collect_job, "send_to_feishu", sent.append)
+
+    result = collect_job.run(db=db)
 
     assert result["status"] == "success"
     assert result["collected_count"] == 1
@@ -375,7 +393,7 @@ def test_collect_and_notify_once_does_not_send_existing_related_item():
     assert db.items.find_one({"unique_key": "brave:https://example.com/a"})["matched_plan_ids"] == ["plan-1"]
 
 
-def test_collect_and_notify_once_records_notify_error_without_marking_notified():
+def test_collect_and_notify_once_records_notify_error_without_marking_notified(monkeypatch):
     db = FakeDb()
     db.plans.insert_one(
         {
@@ -406,12 +424,19 @@ def test_collect_and_notify_once_records_notify_error_without_marking_notified()
                 }
             ]
 
-    result = collect_and_notify_once(
-        db=db,
-        source_clients={"wechat": FakeWechat()},
-        classify=lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
-        send_message=lambda message: (_ for _ in ()).throw(FeishuNotifyError("frequency limited")),
+    def send_failure(message):
+        raise FeishuNotifyError("frequency limited")
+
+    monkeypatch.setattr(collect_job, "load_settings", lambda: object())
+    monkeypatch.setattr(collect_job, "_default_source_clients", lambda settings: {"wechat": FakeWechat()})
+    monkeypatch.setattr(
+        collect_job,
+        "classify_item",
+        lambda item, plan: {"related": True, "sentiment": "positive", "reason": "高榕参与融资"},
     )
+    monkeypatch.setattr(collect_job, "send_to_feishu", send_failure)
+
+    result = collect_job.run(db=db)
 
     stored = db.items.find_one({"unique_key": "wechat:https://mp.weixin.qq.com/s/fail"})
     assert result["status"] == "failed"
@@ -420,7 +445,7 @@ def test_collect_and_notify_once_records_notify_error_without_marking_notified()
     assert "notified_at" not in stored
 
 
-def test_daily_summary_reads_last_24_hours_and_sends_report():
+def test_daily_summary_reads_last_24_hours_and_sends_report(monkeypatch):
     db = FakeDb()
     now = datetime(2026, 5, 19, tzinfo=timezone.utc)
     db.items.insert_one(
@@ -436,8 +461,9 @@ def test_daily_summary_reads_last_24_hours_and_sends_report():
         }
     )
     sent = []
+    monkeypatch.setattr(daily_summary_job, "send_to_feishu", lambda message, title=None: sent.append((title, message)))
 
-    result = daily_summary(db=db, now=now, send_message=lambda message, title=None: sent.append((title, message)))
+    result = daily_summary_job.run(db=db, now=now)
 
     assert result["status"] == "success"
     assert result["item_count"] == 1

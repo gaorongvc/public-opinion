@@ -6,9 +6,8 @@ from opinion.timeutils import parse_datetime
 class JizhileClient:
     endpoint = "https://www.dajiala.com/fbmain/monitor/v3/kw_search"
 
-    def __init__(self, api_key, session=None):
+    def __init__(self, api_key):
         self.api_key = api_key
-        self.session = session or requests
 
     def search(self, plan, period_days=1, max_pages=1):
         if not self.api_key:
@@ -28,7 +27,7 @@ class JizhileClient:
                 "verifycode": "",
                 "type": 1,
             }
-            response = self.session.post(self.endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+            response = requests.post(self.endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
             response.raise_for_status()
             body = response.json()
             if body.get("code") not in (0, None):

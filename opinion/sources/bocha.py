@@ -5,10 +5,9 @@ from opinion.timeutils import parse_datetime
 
 
 class BochaClient:
-    def __init__(self, api_key, endpoint="https://api.bochaai.com/v1/web-search", session=None):
+    def __init__(self, api_key, endpoint="https://api.bochaai.com/v1/web-search"):
         self.api_key = api_key
         self.endpoint = endpoint
-        self.session = session or requests
 
     def search(self, plan, freshness="oneDay", count=10):
         if not self.api_key:
@@ -23,7 +22,7 @@ class BochaClient:
             "summary": True,
             "count": count,
         }
-        response = self.session.post(
+        response = requests.post(
             self.endpoint,
             json=payload,
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"},

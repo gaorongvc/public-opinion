@@ -9,10 +9,9 @@ from opinion.timeutils import parse_datetime
 class BraveSearchClient:
     endpoint = "https://api.search.brave.com/res/v1/web/search"
 
-    def __init__(self, api_key, endpoint=None, session=None):
+    def __init__(self, api_key, endpoint=None):
         self.api_key = api_key
         self.endpoint = endpoint or self.endpoint
-        self.session = session or requests
 
     def search(self, plan, freshness="pd", count=10):
         if not self.api_key:
@@ -30,7 +29,7 @@ class BraveSearchClient:
             "freshness": freshness,
             "result_filter": "web",
         }
-        response = self.session.get(
+        response = requests.get(
             self.endpoint,
             params=params,
             headers={

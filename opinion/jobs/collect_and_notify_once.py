@@ -17,13 +17,11 @@ BRAVE_COUNT = 10
 TOPHUB_COUNT = 10
 
 
-def run(db=None, source_clients=None, classify=None, send_message=None, settings=None):
-    settings = settings or (load_settings() if source_clients is None else None)
+def run(db=None, settings=None):
+    settings = settings or load_settings()
     db = db or get_db()
     ensure_indexes(db)
-    source_clients = source_clients or _default_source_clients(settings)
-    classify = classify or classify_item
-    send_message = send_message or send_to_feishu
+    source_clients = _default_source_clients(settings)
 
     started_at = utcnow()
     run_doc = {
@@ -58,10 +56,10 @@ def run(db=None, source_clients=None, classify=None, send_message=None, settings
                 if not matches_plan(plan, match_text):
                     continue
                 collected_count += 1
-                stored, inserted = _store_item(db, item, plan_id, plan, classify)
+                stored, inserted = _store_item(db, item, plan_id, plan)
                 if inserted and stored.get("related"):
                     try:
-                        send_message(format_item_message(stored))
+                        send_to_feishu(format_item_message(stored))
                     except Exception as exc:
                         errors.append(f"{stored.get('unique_key')}: notify failed: {exc}")
                         continue
@@ -107,7 +105,7 @@ def _search_source(client, source, plan):
     return client.search(plan)
 
 
-def _store_item(db, item, plan_id, plan, classify):
+def _store_item(db, item, plan_id, plan):
     existing = db.items.find_one({"unique_key": item["unique_key"]})
     now = utcnow()
     if existing:
@@ -117,7 +115,7 @@ def _store_item(db, item, plan_id, plan, classify):
         )
         return db.items.find_one({"unique_key": item["unique_key"]}), False
 
-    classification = classify(item, plan)
+    classification = classify_item(item, plan)
     doc = {
         **item,
         **classification,

@@ -7,10 +7,9 @@ from opinion.timeutils import parse_datetime
 class TophubClient:
     endpoint = "https://api.tophubdata.com/search"
 
-    def __init__(self, token, endpoint=None, session=None):
+    def __init__(self, token, endpoint=None):
         self.token = token
         self.endpoint = endpoint or self.endpoint
-        self.session = session or requests
 
     def search(self, plan, page=1, max_pages=1, count=10, hashid=""):
         if not self.token:
@@ -27,7 +26,7 @@ class TophubClient:
                 params = {"q": query, "p": current_page}
                 if hashid:
                     params["hashid"] = hashid
-                response = self.session.get(
+                response = requests.get(
                     self.endpoint,
                     params=params,
                     headers={"Authorization": self.token},
