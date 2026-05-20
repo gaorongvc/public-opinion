@@ -13,8 +13,9 @@ Environment variables:
 Create a `.env` file before running jobs, source smoke tests, or the admin UI.
 
 - `JZL_API_KEY`: 极致了 API key. Defaults to the existing project key.
-- `BOCHA_API_KEY`: 博查 Web Search API key.
+- `BOCHA_API_KEY`: 博查搜索 API key.
 - `BRAVE_API_KEY`: Brave Search API key.
+- `TOPHUB_TOKEN`: TopHub Data API token.
 - `FEISHU_WEBHOOKS`: comma-separated Feishu bot webhook URLs. Defaults to the existing global hooks.
 - `MONGO_URI`: optional MongoDB URI fallback when `grlibs.mdb` is unavailable.
 - `MONGO_DB`: MongoDB database name for `MONGO_URI`, default `opinion`.
@@ -36,22 +37,23 @@ Core fields:
 - `kw`: required keywords. All tokens must be present.
 - `any_kw`: optional keywords. At least one token must be present when set.
 - `ex_kw`: exclusion keywords. Any hit filters the item out.
-- `sources`: enabled data sources, currently `wechat`, `web`, `brave`, or any combination.
+- `sources`: enabled data sources, currently `wechat`, `web`, `brave`, `tophub`, or any combination.
 - `enabled`: whether the plan is active.
 - `created_at`: creation time.
 - `updated_at`: last edit time.
 
 ### `items`
 
-Stores normalized public opinion records collected from 极致了 and 博查.
+Stores normalized public opinion records collected from 极致了, 博查搜索, Brave,
+and TopHub.
 Documents are deduplicated by `unique_key`, so repeated runs can safely process
 the same source results.
 
 Core fields:
 
-- `unique_key`: stable dedupe key, such as `wechat:<url>`, `web:<url>`, or `brave:<url>`.
-- `source_type`: `wechat`, `web`, or `brave`.
-- `source_name`: WeChat account name, website name, or source display name.
+- `unique_key`: stable dedupe key, such as `wechat:<url>`, `web:<url>`, `brave:<url>`, or `tophub:<url>`.
+- `source_type`: `wechat`, `web`, `brave`, or `tophub`.
+- `source_name`: WeChat account name, website name, hot-list source name, or source display name.
 - `title`: article or page title.
 - `url`: original content URL.
 - `content`: full text when available, otherwise source summary/snippet.
@@ -112,3 +114,7 @@ Run tests:
 ```bash
 uv run python -m pytest
 ```
+
+# 注意
+1. brave web/news search 拿不到当日数据，舆情场景数据的及时性不够；
+2. bocha ai/web search 无法实现 kw, any_kw 及 ex_kw 这样的逻辑，通搜结果较差；

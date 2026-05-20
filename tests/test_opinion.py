@@ -11,6 +11,7 @@ from opinion.notifier import FeishuNotifyError, ensure_feishu_success
 from opinion.sources.bocha import BochaClient
 from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
+from opinion.sources.tophub import TophubClient, build_tophub_queries
 
 
 class FakeResponse:
@@ -199,6 +200,38 @@ def test_brave_client_maps_web_results_and_uses_subscription_header():
     assert items[0]["source_type"] == "brave"
     assert items[0]["source_name"] == "Example"
     assert items[0]["unique_key"] == "brave:https://example.com/brave"
+
+
+def test_tophub_client_maps_hot_items_and_uses_authorization_header():
+    session = FakeSession(
+        {
+            "data": [
+                {
+                    "title": "高榕资本新闻",
+                    "url": "https://example.com/tophub",
+                    "source": "微博热搜",
+                    "hot": 567890,
+                    "time": "2026-05-18 10:00:00",
+                }
+            ],
+            "page": 1,
+            "total": 1,
+        }
+    )
+    client = TophubClient(token="tophub-token", session=session)
+    items = client.search({"kw": "高榕", "any_kw": "融资 募资", "ex_kw": "招聘"}, count=10)
+
+    assert session.calls[0][1]["headers"]["Authorization"] == "tophub-token"
+    assert [call[1]["params"]["q"] for call in session.calls] == ["高榕 融资", "高榕 募资"]
+    assert items[0]["source_type"] == "tophub"
+    assert items[0]["source_name"] == "微博热搜"
+    assert items[0]["metrics"]["hot"] == 567890
+    assert items[0]["unique_key"] == "tophub:https://example.com/tophub"
+
+
+def test_tophub_queries_use_kw_plus_single_any_kw_without_operators():
+    plan = {"kw": "高榕 资本", "any_kw": "融资 投资", "ex_kw": "招聘"}
+    assert build_tophub_queries(plan) == ["高榕 资本 融资", "高榕 资本 投资"]
 
 
 def test_parse_llm_json_accepts_fenced_json():

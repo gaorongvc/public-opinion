@@ -13,6 +13,12 @@ SENTIMENT_TEXT = {
     "negative": "负面",
     "neutral": "中性",
 }
+SOURCE_TEXT = {
+    "wechat": "微信公众号",
+    "web": "博查搜索",
+    "brave": "Brave Search",
+    "tophub": "TopHub 热点",
+}
 
 
 def format_datetime(value):
@@ -25,8 +31,18 @@ def sentiment_text(value):
     return SENTIMENT_TEXT.get(value, value or "")
 
 
+def source_text(value):
+    return SOURCE_TEXT.get(value, value or "")
+
+
+def source_list_text(values):
+    return "、".join(source_text(value) for value in (values or []))
+
+
 templates.env.filters["format_datetime"] = format_datetime
 templates.env.filters["sentiment_text"] = sentiment_text
+templates.env.filters["source_text"] = source_text
+templates.env.filters["source_list_text"] = source_list_text
 
 
 @app.get("/")
@@ -52,7 +68,7 @@ def create_plan(
     kw: str = Form(""),
     any_kw: str = Form(""),
     ex_kw: str = Form(""),
-    sources: list[str] = Form(["wechat", "web"]),
+    sources: list[str] = Form(["wechat"]),
     enabled: str | None = Form(None),
 ):
     db = get_db()
@@ -74,7 +90,7 @@ def update_plan(
     kw: str = Form(""),
     any_kw: str = Form(""),
     ex_kw: str = Form(""),
-    sources: list[str] = Form(["wechat", "web"]),
+    sources: list[str] = Form(["wechat"]),
     enabled: str | None = Form(None),
 ):
     db = get_db()

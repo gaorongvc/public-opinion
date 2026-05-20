@@ -60,8 +60,8 @@ if __name__ == "__main__":
     load_env()
     client = BochaClient(os.getenv("BOCHA_API_KEY", ""))
     plan = {
-        "kw": os.getenv("OPINION_TEST_KW", "高榕"),
-        "any_kw": os.getenv("OPINION_TEST_ANY_KW", "融资"),
+        "kw": os.getenv("OPINION_TEST_KW", "高榕 创投"),
+        "any_kw": os.getenv("OPINION_TEST_ANY_KW", "Kimi liblib"),
         "ex_kw": os.getenv("OPINION_TEST_EX_KW", ""),
     }
     items = client.search(plan, freshness=os.getenv("OPINION_TEST_FRESHNESS", "oneDay"), count=10)

@@ -2,18 +2,18 @@
 {% block content %}
 <div class="toolbar">
   <h2>监控方案</h2>
-  <a class="button" href="/plans/new">新增方案</a>
+  <a class="button" data-op-only hidden href="/plans/new">新增方案</a>
 </div>
-<table>
+<table class="plans-table">
   <thead>
     <tr>
-      <th>名称</th>
-      <th>必须包含</th>
-      <th>任一包含</th>
-      <th>排除词</th>
-      <th>来源</th>
-      <th>状态</th>
-      <th>操作</th>
+      <th class="col-name">名称</th>
+      <th class="col-kw">必须包含</th>
+      <th class="col-any">任一包含</th>
+      <th class="col-ex">排除词</th>
+      <th class="col-source">来源</th>
+      <th class="col-status">状态</th>
+      <th class="col-op" data-op-only hidden>操作</th>
     </tr>
   </thead>
   <tbody>
@@ -23,17 +23,18 @@
       <td>{{ plan.kw }}</td>
       <td>{{ plan.any_kw }}</td>
       <td>{{ plan.ex_kw }}</td>
-      <td>{{ ", ".join(plan.sources or []) }}</td>
+      <td>{{ plan.sources|source_list_text }}</td>
       <td>{{ "启用" if plan.enabled else "停用" }}</td>
-      <td>
-        <a href="/plans/{{ plan._id }}/edit">编辑</a>
-        <form class="inline" method="post" action="/plans/{{ plan._id }}/toggle">
-          <button type="submit">{{ "停用" if plan.enabled else "启用" }}</button>
-        </form>
+      <td class="col-op" data-op-only hidden>
+        <div class="op-actions">
+          <a class="button secondary small" href="/plans/{{ plan._id }}/edit">编辑</a>
+          <form class="inline" method="post" action="/plans/{{ plan._id }}/toggle">
+            <button class="button secondary small" type="submit">{{ "停用" if plan.enabled else "启用" }}</button>
+          </form>
+        </div>
       </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% endblock %}
-

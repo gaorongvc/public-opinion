@@ -7,12 +7,14 @@ from opinion.settings import load_settings
 from opinion.sources.bocha import BochaClient
 from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
+from opinion.sources.tophub import TophubClient
 from opinion.timeutils import utcnow
 
 
 JIZHILE_MAX_PAGES = 1
 BOCHA_COUNT = 10
 BRAVE_COUNT = 10
+TOPHUB_COUNT = 10
 
 
 def run(db=None, source_clients=None, classify=None, send_message=None, settings=None):
@@ -89,6 +91,7 @@ def _default_source_clients(settings):
         "wechat": JizhileClient(settings.jizhile_api_key),
         "web": BochaClient(settings.bocha_api_key),
         "brave": BraveSearchClient(settings.brave_api_key),
+        "tophub": TophubClient(settings.tophub_token),
     }
 
 
@@ -99,6 +102,8 @@ def _search_source(client, source, plan):
         return client.search(plan, freshness="oneDay", count=BOCHA_COUNT)
     if source == "brave":
         return client.search(plan, freshness="pd", count=BRAVE_COUNT)
+    if source == "tophub":
+        return client.search(plan, count=TOPHUB_COUNT)
     return client.search(plan)
 
 

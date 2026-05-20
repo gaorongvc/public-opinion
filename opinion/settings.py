@@ -15,6 +15,7 @@ class Settings:
     jizhile_api_key: str = ""
     bocha_api_key: str = ""
     brave_api_key: str = ""
+    tophub_token: str = ""
     feishu_webhooks: tuple[str, ...] = DEFAULT_FEISHU_WEBHOOKS
 
 
@@ -29,5 +30,6 @@ def load_settings() -> Settings:
         jizhile_api_key=os.getenv("JZL_API_KEY", "JZL9145b9c50fc2d48f"),
         bocha_api_key=os.getenv("BOCHA_API_KEY", ""),
         brave_api_key=os.getenv("BRAVE_API_KEY", ""),
+        tophub_token=os.getenv("TOPHUB_TOKEN", ""),
         feishu_webhooks=webhooks or DEFAULT_FEISHU_WEBHOOKS,
     )

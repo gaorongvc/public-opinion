@@ -23,7 +23,10 @@ class BraveSearchClient:
             return []
         params = {
             "q": query,
-            "count": min(max(int(count), 1), 20),
+            # "country": "CN",
+            # "search_lang": "zh-hans",
+            "count": min(max(int(count), 1), 10),
+            # "safesearch": "strict",
             "freshness": freshness,
             "result_filter": "web",
         }
