@@ -50,7 +50,7 @@ class JizhileClient:
 
     @retry(tries=3, delay=3, logger=None)
     def _request(self, payload):
-        response = requests.post(self.endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+        response = requests.post(self.endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
         response.raise_for_status()
         return response
 

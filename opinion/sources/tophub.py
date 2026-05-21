@@ -60,7 +60,7 @@ class TophubClient:
             self.endpoint,
             params=params,
             headers={"Authorization": self.token},
-            timeout=30,
+            timeout=60,
         )
         response.raise_for_status()
         return response
