@@ -1,6 +1,5 @@
-from datetime import timezone
+from datetime import timedelta, timezone
 from typing import List, Optional
-from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
@@ -12,7 +11,7 @@ from opinion.db import get_db, object_id
 app = FastAPI(title="Opinion Monitor")
 templates = Jinja2Templates(directory="opinion/templates")
 PAGE_SIZE = 20
-BEIJING_TIMEZONE = ZoneInfo("Asia/Shanghai")
+BEIJING_TIMEZONE = timezone(timedelta(hours=8), "Asia/Shanghai")
 SENTIMENT_TEXT = {
     "positive": "正向",
     "negative": "负面",

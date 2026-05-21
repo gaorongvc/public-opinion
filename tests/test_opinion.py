@@ -636,6 +636,11 @@ def test_web_format_datetime_displays_beijing_time():
     assert web.format_datetime(datetime(2026, 5, 21, 9, 30)) == "2026-05-21 17:30:00"
 
 
+def test_runtime_code_does_not_import_zoneinfo_for_airflow_python38():
+    for path in Path("opinion").rglob("*.py"):
+        assert "zoneinfo" not in path.read_text(), f"{path} imports zoneinfo, unavailable in Python 3.8"
+
+
 def test_justoneapi_queries_use_kw_plus_single_any_kw_without_operators():
     plan = {"kw": "高榕 资本", "any_kw": "融资 投资", "ex_kw": "招聘 离职"}
     assert build_justoneapi_queries(plan) == ["高榕 资本 融资", "高榕 资本 投资"]

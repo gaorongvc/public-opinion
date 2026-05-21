@@ -1,5 +1,4 @@
-from datetime import timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta, timezone
 
 import requests
 from retry import retry
@@ -8,7 +7,7 @@ from opinion.keywords import keyword_tokens
 from opinion.timeutils import parse_datetime, utcnow
 
 
-DEFAULT_TIMEZONE = ZoneInfo("Asia/Shanghai")
+DEFAULT_TIMEZONE = timezone(timedelta(hours=8), "Asia/Shanghai")
 
 
 class JustOneApiClient:
