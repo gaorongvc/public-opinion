@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +8,7 @@ import opinion.jobs.daily_summary as daily_summary_job
 import opinion.sources.bocha as bocha_source
 import opinion.sources.brave as brave_source
 import opinion.sources.jizhile as jizhile_source
+import opinion.sources.justoneapi as justoneapi_source
 import opinion.sources.toutiao as toutiao_source
 import opinion.sources.tophub as tophub_source
 import opinion.classifier as classifier
@@ -17,6 +19,7 @@ from opinion.notifier import FeishuNotifyError, ensure_feishu_success
 from opinion.sources.bocha import BochaClient
 from opinion.sources.brave import BraveSearchClient
 from opinion.sources.jizhile import JizhileClient
+from opinion.sources.justoneapi import JustOneApiClient, build_justoneapi_queries
 from opinion.sources.toutiao import ToutiaoSearchClient, build_toutiao_queries
 from opinion.sources.tophub import TophubClient, build_tophub_queries
 
@@ -619,6 +622,67 @@ def test_tophub_client_filters_items_older_than_24_hours(monkeypatch):
 def test_tophub_queries_use_kw_plus_single_any_kw_without_operators():
     plan = {"kw": "高榕 资本", "any_kw": "融资 投资", "ex_kw": "招聘"}
     assert build_tophub_queries(plan) == ["高榕 资本 融资", "高榕 资本 投资"]
+
+
+def test_plan_form_disables_unavailable_toutiao_source():
+    template = Path("opinion/templates/plan_form.html").read_text()
+
+    assert '<label class="disabled-source"><input data-always-disabled type="checkbox" name="sources" value="toutiao" disabled> 头条搜索</label>' in template
+
+
+def test_justoneapi_queries_use_kw_plus_single_any_kw_without_operators():
+    plan = {"kw": "高榕 资本", "any_kw": "融资 投资", "ex_kw": "招聘 离职"}
+    assert build_justoneapi_queries(plan) == ["高榕 资本 融资", "高榕 资本 投资"]
+
+
+def test_justoneapi_client_maps_cross_platform_results_and_uses_last_six_hours(monkeypatch):
+    session = FakeSession(
+        {
+            "code": 0,
+            "data": {
+                "nextCursor": "cursor-1",
+                "totalNumber": 1,
+                "list": [
+                    {
+                        "title": "高榕资本消息",
+                        "url": "https://example.com/justoneapi",
+                        "content": "高榕资本参与融资",
+                        "createTime": 1779332463322,
+                        "sourceName": "中金在线",
+                        "author": {"nickname": "作者"},
+                    }
+                ],
+            },
+        }
+    )
+    monkeypatch.setattr(justoneapi_source, "requests", session)
+    monkeypatch.setattr(justoneapi_source, "utcnow", lambda: datetime(2026, 5, 21, 9, 30, tzinfo=timezone.utc))
+
+    client = JustOneApiClient(token="justone-token")
+    items = client.search({"kw": "高榕", "any_kw": "融资 投资", "ex_kw": "招聘"}, count=10)
+
+    assert [call[1]["params"]["keyword"] for call in session.calls] == ["高榕 融资", "高榕 投资"]
+    params = session.calls[0][1]["params"]
+    assert params["token"] == "justone-token"
+    assert params["source"] == "ALL"
+    assert params["start"] == "2026-05-21 11:30:00"
+    assert params["end"] == "2026-05-21 17:30:00"
+    assert "nextCursor" not in params
+    assert items[0]["source_type"] == "justoneapi"
+    assert items[0]["source_name"] == "中金在线"
+    assert items[0]["summary"] == "高榕资本参与融资"
+    assert items[0]["metrics"]["author_nickname"] == "作者"
+    assert items[0]["unique_key"] == "justoneapi:https://example.com/justoneapi"
+
+
+def test_justoneapi_client_raises_for_business_error(monkeypatch):
+    session = FakeSession({"code": 100, "message": "Token 无效或已失效"})
+    monkeypatch.setattr(justoneapi_source, "requests", session)
+
+    client = JustOneApiClient(token="bad-token")
+
+    with pytest.raises(RuntimeError, match="Token 无效"):
+        client.search({"kw": "高榕", "any_kw": "", "ex_kw": ""})
 
 
 def test_parse_llm_json_accepts_fenced_json():

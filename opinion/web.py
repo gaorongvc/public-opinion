@@ -21,6 +21,7 @@ SOURCE_TEXT = {
     "brave": "Brave Search",
     "tophub": "TopHub 热点",
     "toutiao": "头条搜索",
+    "justoneapi": "Just One API",
 }
 
 

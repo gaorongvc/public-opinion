@@ -17,6 +17,7 @@ Create a `.env` file before running jobs, source smoke tests, or the admin UI.
 - `BRAVE_API_KEY`: Brave Search API key.
 - `TOPHUB_TOKEN`: TopHub Data API token.
 - `JINA_API_KEY`: Jina Reader API key used for 头条搜索.
+- `JUSTONEAPI_TOKEN`: Just One API token used for cross-platform search.
 - `FEISHU_WEBHOOKS`: comma-separated Feishu bot webhook URLs. Defaults to the existing global hooks.
 
 Run the admin UI:
