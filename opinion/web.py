@@ -1,4 +1,6 @@
+from datetime import timezone
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
@@ -10,6 +12,7 @@ from opinion.db import get_db, object_id
 app = FastAPI(title="Opinion Monitor")
 templates = Jinja2Templates(directory="opinion/templates")
 PAGE_SIZE = 20
+BEIJING_TIMEZONE = ZoneInfo("Asia/Shanghai")
 SENTIMENT_TEXT = {
     "positive": "正向",
     "negative": "负面",
@@ -28,7 +31,11 @@ SOURCE_TEXT = {
 def format_datetime(value):
     if not value:
         return ""
-    return value.strftime("%Y-%m-%d %H:%M:%S") if hasattr(value, "strftime") else str(value)
+    if not hasattr(value, "strftime"):
+        return str(value)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(BEIJING_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def sentiment_text(value):

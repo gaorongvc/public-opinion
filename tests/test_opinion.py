@@ -12,6 +12,7 @@ import opinion.sources.justoneapi as justoneapi_source
 import opinion.sources.toutiao as toutiao_source
 import opinion.sources.tophub as tophub_source
 import opinion.classifier as classifier
+import opinion.web as web
 from opinion.classifier import parse_llm_json
 from opinion.formatters import format_daily_summary, format_item_message
 from opinion.keywords import build_search_query, keyword_tokens, matches_plan
@@ -628,6 +629,11 @@ def test_plan_form_disables_unavailable_toutiao_source():
     template = Path("opinion/templates/plan_form.html").read_text()
 
     assert '<label class="disabled-source"><input data-always-disabled type="checkbox" name="sources" value="toutiao" disabled> 头条搜索</label>' in template
+
+
+def test_web_format_datetime_displays_beijing_time():
+    assert web.format_datetime(datetime(2026, 5, 21, 9, 30, tzinfo=timezone.utc)) == "2026-05-21 17:30:00"
+    assert web.format_datetime(datetime(2026, 5, 21, 9, 30)) == "2026-05-21 17:30:00"
 
 
 def test_justoneapi_queries_use_kw_plus_single_any_kw_without_operators():
