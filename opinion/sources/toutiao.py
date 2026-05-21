@@ -32,7 +32,6 @@ class ToutiaoSearchClient:
         seen = set()
         for query in queries:
             max_time = self._search_page_max_time(query)
-            min_time, max_time = _period_bounds(period_days, max_time=max_time)
             params = {
                 "dvpf": "pc",
                 "source": "input",
@@ -42,10 +41,10 @@ class ToutiaoSearchClient:
                 "filter_vendor": "all",
                 "index_resource": "all",
                 "filter_period": "day",
-                "min_time": min_time,
-                "max_time": max_time,
             }
-            response = self._request_with_record(query, params)
+            if max_time:
+                params["max_time"] = max_time
+            response = self._request_with_record(query, params, target_selector=".s-result-list")
             for record in extract_toutiao_records(response.text):
                 item = map_toutiao_result(record)
                 unique_key = item["unique_key"]
@@ -68,12 +67,12 @@ class ToutiaoSearchClient:
             "page_num": 0,
             "pd": "synthesis",
         }
-        response = self._request_with_record(query, params)
+        response = self._request_with_record(query, params, target_selector=None)
         return extract_max_time(response.text)
 
-    def _request_with_record(self, query, params):
+    def _request_with_record(self, query, params, target_selector=".s-result-list"):
         try:
-            response = self._request(params)
+            response = self._request(params, target_selector=target_selector)
         except Exception as exc:
             self.request_results.append({"query": query, "request": dict(params), "error": str(exc)})
             raise
@@ -82,15 +81,17 @@ class ToutiaoSearchClient:
         return response
 
     @retry(tries=3, delay=3, logger=None)
-    def _request(self, params):
+    def _request(self, params, target_selector=".s-result-list"):
+        headers = {
+            "Authorization": f"Bearer {self.jina_api_key}",
+            "X-Return-Format": "html",
+        }
+        if target_selector:
+            headers["X-Target-Selector"] = target_selector
         response = requests.get(
             self.endpoint,
             params=params,
-            headers={
-                "Authorization": f"Bearer {self.jina_api_key}",
-                "X-Return-Format": "html",
-                "X-Target-Selector": ".s-result-list",
-            },
+            headers=headers,
             timeout=30,
         )
         response.raise_for_status()
@@ -139,14 +140,16 @@ def map_toutiao_result(record):
 
 
 def extract_max_time(html):
-    values = [int(value) for value in re.findall(r"[?&]max_time=(\d+)", html or "")]
-    return max(values) if values else None
-
-
-def _period_bounds(period_days, max_time=None):
-    end = int(max_time) if max_time else int(utcnow().timestamp())
-    start = end - max(int(period_days), 1) * 86400
-    return start, end
+    html = html or ""
+    for pattern in (
+        r'(?:["\']|&quot;)current_time(?:["\']|&quot;)\s*:\s*(\d{13})',
+        r'(?:["\']|&quot;)curTs(?:["\']|&quot;)\s*:\s*(\d{10})',
+        r"[?&]max_time=(\d+)",
+    ):
+        values = [int(value) for value in re.findall(pattern, html)]
+        if values:
+            return max(values)
+    return None
 
 
 def _result_chunks(html):

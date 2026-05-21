@@ -384,11 +384,47 @@ def test_toutiao_client_maps_jina_html_and_uses_reader_headers(monkeypatch):
     assert session.calls[1][1]["params"]["keyword"] == "高榕 融资"
     assert session.calls[1][1]["params"]["filter_period"] == "day"
     assert session.calls[1][1]["params"]["max_time"] == 1779287545
-    assert session.calls[1][1]["params"]["min_time"] == 1779201145
+    assert "min_time" not in session.calls[1][1]["params"]
     assert items[0]["source_type"] == "toutiao"
     assert items[0]["source_name"] == "今日头条"
     assert items[0]["summary"] == "高榕资本参与融资"
     assert items[0]["unique_key"] == "toutiao:https://www.toutiao.com/article/123"
+
+
+def test_toutiao_client_extracts_current_time_as_max_time():
+    html = """
+    <script>
+      window.__SSR_HYDRATED_DATA__ = {"curTs":1779331727,"current_time":1779331727356};
+    </script>
+    """
+
+    assert toutiao_source.extract_max_time(html) == 1779331727356
+
+
+def test_toutiao_client_uses_current_time_from_full_search_page(monkeypatch):
+    session = SequenceSession(
+        [
+            """
+            <html><script>
+              window.__SSR_HYDRATED_DATA__ = {"curTs":1779331727,"current_time":1779331727356};
+            </script></html>
+            """,
+            """
+            <div class="s-result-list">
+              <a href="https://www.toutiao.com/article/456">普京访华</a>
+              <p>普京访华欢迎仪式</p>
+            </div>
+            """,
+        ]
+    )
+    monkeypatch.setattr(toutiao_source, "requests", session)
+
+    client = ToutiaoSearchClient(jina_api_key="jina-key")
+    client.search({"kw": "普京", "any_kw": "", "ex_kw": ""}, period_days=1, count=10)
+
+    assert "X-Target-Selector" not in session.calls[0][1]["headers"]
+    assert session.calls[1][1]["headers"]["X-Target-Selector"] == ".s-result-list"
+    assert session.calls[1][1]["params"]["max_time"] == 1779331727356
 
 
 def test_toutiao_client_retries_request_three_times(monkeypatch):
