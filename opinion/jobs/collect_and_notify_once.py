@@ -174,4 +174,4 @@ def _store_item(db, item, plan_id, plan):
 
 
 if __name__ == "__main__":
-    print(run())
+    run()

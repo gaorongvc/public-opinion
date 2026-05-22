@@ -43,4 +43,4 @@ def run(db=None, now=None):
 
 
 if __name__ == "__main__":
-    print(run())
+    run()
