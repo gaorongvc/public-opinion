@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 import opinion.jobs.collect_and_notify_once as collect_job
 import opinion.jobs.daily_summary as daily_summary_job
@@ -634,6 +635,18 @@ def test_plan_form_disables_unavailable_toutiao_source():
 def test_web_format_datetime_displays_beijing_time():
     assert web.format_datetime(datetime(2026, 5, 21, 9, 30, tzinfo=timezone.utc)) == "2026-05-21 17:30:00"
     assert web.format_datetime(datetime(2026, 5, 21, 9, 30)) == "2026-05-21 17:30:00"
+
+
+def test_web_serves_favicon_without_database():
+    client = TestClient(web.app)
+
+    icon = client.get("/static/favicon.svg")
+    default_icon = client.get("/favicon.ico", follow_redirects=False)
+
+    assert icon.status_code == 200
+    assert icon.headers["content-type"].startswith("image/svg+xml")
+    assert default_icon.status_code == 307
+    assert default_icon.headers["location"] == "/static/favicon.svg"
 
 
 def test_runtime_code_does_not_import_zoneinfo_for_airflow_python38():

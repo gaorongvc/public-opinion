@@ -3,12 +3,14 @@ from typing import List, Optional
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from opinion.db import get_db, object_id
 
 
 app = FastAPI(title="Opinion Monitor")
+app.mount("/static", StaticFiles(directory="opinion/static"), name="static")
 templates = Jinja2Templates(directory="opinion/templates")
 PAGE_SIZE = 20
 BEIJING_TIMEZONE = timezone(timedelta(hours=8), "Asia/Shanghai")
@@ -58,6 +60,11 @@ templates.env.filters["source_list_text"] = source_list_text
 @app.get("/")
 def index():
     return RedirectResponse("/plans", status_code=303)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return RedirectResponse("/static/favicon.svg", status_code=307)
 
 
 @app.get("/plans")
